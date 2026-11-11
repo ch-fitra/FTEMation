@@ -20,6 +20,7 @@ import AnalysisPage from "../pages/AnalysisPage";
 import type { User } from "../types/auth";
 import type { ImportItem } from "../types/workload";
 import WorkspaceHeader from "./WorkspaceHeader";
+import Select from "../components/Select";
 import WorkspaceSidebar from "./WorkspaceSidebar";
 
 export default function WorkspaceLayout({
@@ -43,6 +44,8 @@ export default function WorkspaceLayout({
     const currentPage =
         workspaceNavigation.find((item) => item.path === currentPath) ??
         workspaceNavigation[0];
+
+    const analysisStatus = workload.summary ? ({ completed: "Selesai", queued: "Dalam antrean", processing: "Sedang dianalisis", failed: "Gagal", partial_failed: "Sebagian gagal", not_started: "Belum dianalisis" } as Record<string, string>)[workload.summary.analysis_status] ?? workload.summary.analysis_status : "Belum dianalisis";
 
     async function logout() {
         if (logoutPhase !== "confirm") return;
@@ -68,7 +71,7 @@ export default function WorkspaceLayout({
 
     return (
         <div className="workspace">
-            <WorkspaceSidebar onLogout={() => setLogoutPhase("confirm")} />
+            <WorkspaceSidebar importId={workload.selectedId} onLogout={() => setLogoutPhase("confirm")} />
             <div className="main-shell">
                 <WorkspaceHeader
                     title={currentPage.title}
@@ -76,6 +79,16 @@ export default function WorkspaceLayout({
                     user={user}
                 />
                 <main className="content">
+                    <section className="dataset-context" aria-label="Dataset aktif" aria-busy={workload.loading}>
+                        <label>DATASET AKTIF
+                            <Select value={workload.selectedId ?? ""} aria-label="Dataset aktif" onChange={(e) => { workload.selectImport(Number(e.target.value)); navigate(`${currentPath}?dataset=${e.target.value}`); }}>
+                                <option value="" disabled>Pilih dataset</option>
+                                {workload.selectedImport && !workload.imports.some((i) => i.id === workload.selectedId) && <option value={workload.selectedId!}>{workload.selectedImport.filename} · #{workload.selectedId}</option>}
+                                {workload.imports.filter((i) => i.status === "imported").map((i) => <option key={i.id} value={i.id}>{i.filename} · #{i.id}</option>)}
+                            </Select>
+                        </label>
+                        <p role="status">{workload.loading ? "Memuat konteks dataset…" : workload.summary ? `${workload.summary.activities_count} aktivitas · ${workload.summary.employees_count} karyawan · ${workload.summary.departments_count} departemen` : "Belum ada dataset"}<br />{workload.summary?.analysis_run_id ? `Hasil lengkap: Run #${workload.summary.analysis_run_id} · Status terbaru: ${analysisStatus}` : `Hasil analisis belum tersedia | ${analysisStatus}`}</p>
+                    </section>
                     <ErrorAlert messages={workload.errors} />
                     {workload.loading ? (
                         <WorkspacePlaceholder page={currentPath} />
@@ -88,6 +101,7 @@ export default function WorkspaceLayout({
                                     <AnalysisPage
                                         key={workload.selectedId}
                                         importId={workload.selectedId}
+                                        model={workload.summary?.analysis_model}
                                         onComplete={workload.refreshImports}
                                     />
                                 }
@@ -96,6 +110,7 @@ export default function WorkspaceLayout({
                                 path="/"
                                 element={
                                     <OverviewPage
+                                        importId={workload.selectedId}
                                         summary={workload.summary}
                                         hasImports={workload.imports.length > 0}
                                     />
@@ -119,6 +134,7 @@ export default function WorkspaceLayout({
                                 path="/activities"
                                 element={
                                     <ActivitiesPage
+                                        key={workload.selectedId}
                                         importId={workload.selectedId}
                                         summary={workload.summary}
                                     />

@@ -1,3 +1,4 @@
+import type { AnalysisActivity } from "./analysis";
 export interface ImportItem {
     id: number;
     filename: string;
@@ -8,12 +9,15 @@ export interface ImportItem {
     warnings: string[] | null;
 }
 export interface Department {
+    estimated_fte_saving?: number;
     department: string;
     activities_count: number;
     employees_count: number;
     total_fte: number;
 }
 export interface Summary {
+    top_opportunities?: AnalysisActivity[];
+    oversight_count?: number | null;
     calculation: {
         annual_capacity_minutes: number;
         annual_factors: Record<string, number>;
@@ -26,6 +30,7 @@ export interface Summary {
     departments_count: number;
     total_fte: number;
     departments: Department[];
+    analysis_model?: string;
     analysis_status: string;
     estimated_fte_saving: number | null;
     remaining_fte: number | null;

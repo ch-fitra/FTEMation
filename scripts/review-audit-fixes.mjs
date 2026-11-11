@@ -41,7 +41,7 @@ try {
     for (const [status, label] of [['not_started', 'Analisis belum dimulai'], ['queued', 'Analisis dalam antrean'], ['processing', 'Analisis sedang berjalan'], ['failed', 'Analisis gagal'], ['partial_failed', 'Analisis sebagian gagal'], ['completed', 'Analisis lengkap']]) {
         const fixture = structuredClone(detail);
         fixture.summary.analysis_status = status;
-        if (status === 'not_started') Object.assign(fixture.summary, { analysis_run_id: null, automation_levels: null, estimated_fte_saving: null, remaining_fte: null });
+        if (status === 'not_started') Object.assign(fixture.summary, { analysis_run_id: null, automation_levels: null, estimated_fte_saving: null, remaining_fte: null, top_opportunities: [], oversight_count: null });
         await page.route(`**/api/imports/${id}`, route => route.fulfill({ json: fixture }));
         await page.goto('http://localhost:8000/', { waitUntil: 'networkidle' });
         await page.locator('.department-chart').waitFor();
@@ -53,7 +53,7 @@ try {
     const historyUrl = /\/api\/imports(?:\?.*)?$/;
     await page.route(historyUrl, route => route.fulfill({ json: { ...imports, data: [] } }));
     await page.goto('http://localhost:8000/', { waitUntil: 'networkidle' });
-    await page.getByRole('heading', { name: 'Awali dengan data workload Anda' }).waitFor();
+    await page.getByRole('heading', { name: 'Mulai analisis workload pertama Anda' }).waitFor();
     checks.push('Overview no-import fixture');
     await page.unroute(historyUrl);
     await page.route('**/api/analyses/*', async route => {

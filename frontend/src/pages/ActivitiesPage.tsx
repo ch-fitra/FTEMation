@@ -34,7 +34,7 @@ export default function ActivitiesPage({
                     params: { search, department, frequency, page },
                     signal: controller.signal,
                 })
-                    .then(({ data }) => setResult(data))
+                    .then(({ data }) => { if (!controller.signal.aborted) setResult(data); })
                     .catch((err) => {
                         if (!controller.signal.aborted)
                             setErrors(errorMessages(err));
@@ -115,6 +115,8 @@ export default function ActivitiesPage({
                     </Select>
                 </label>
             </div>
+            <button onClick={() => { setSearch(""); setDepartment(""); setFrequency(""); setPage(1); }}>Reset filter</button>
+            {summary?.analysis_run_id && <Link className="button" to={`/analysis?dataset=${importId}&run=${summary.analysis_run_id}`}>Lihat hasil AI</Link>}
             <ErrorAlert messages={errors} />
             <p className="table-hint">
                 Geser tabel untuk melihat kolom lainnya.

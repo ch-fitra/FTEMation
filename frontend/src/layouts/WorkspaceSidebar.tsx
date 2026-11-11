@@ -5,12 +5,14 @@ import Icon from "../components/Icon";
 
 export default function WorkspaceSidebar({
     onLogout,
+    importId,
 }: {
+    importId?: number | null;
     onLogout?: () => void;
 }) {
     return (
         <aside className="sidebar">
-            <Link className="brand" to="/">
+            <Link className="brand" to={importId ? `/?dataset=${importId}` : "/"}>
                 <img
                     className="sidebar-mark"
                     src={mark}
@@ -29,7 +31,7 @@ export default function WorkspaceSidebar({
                     <NavLink
                         key={item.path}
                         end={item.path === "/"}
-                        to={item.path}
+                        to={importId ? `${item.path}?dataset=${importId}` : item.path}
                     >
                         <Icon name={item.icon} /> {item.label}
                     </NavLink>

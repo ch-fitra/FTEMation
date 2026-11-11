@@ -51,6 +51,25 @@ class WorkloadImportTest extends TestCase
         return ['ACT-1', 'EMP-1', 'Demo Employee', 'Operations', 'Input record', 'Input data terstruktur dari formulir yang terverifikasi.', 'daily', 10, 9];
     }
 
+    public function test_downloaded_template_passes_the_actual_import_contract(): void
+    {
+        $response = $this->get('/api/import-template')->assertOk();
+        $file = UploadedFile::fake()->createWithContent('template.xlsx', $response->streamedContent());
+        $this->postJson('/api/imports', ['file' => $file])->assertCreated()
+            ->assertJsonPath('summary.activities_count', 1)
+            ->assertJsonPath('summary.top_opportunities', [])
+            ->assertJsonPath('summary.estimated_fte_saving', null);
+    }
+
+    public function test_import_validation_explains_numeric_error_in_indonesian(): void
+    {
+        $row = $this->row();
+        $row[7] = 0;
+        $response = $this->postJson('/api/imports', ['file' => $this->workbook([$row])])->assertUnprocessable();
+        $this->assertStringContainsString('Volume harus lebih besar dari 0.', json_encode($response->json('errors')));
+        $this->assertDatabaseCount('activities', 0);
+    }
+
     public function test_reference_workbook_passes_counts_precision_and_aggregation_acceptance(): void
     {
         $response = $this->postJson('/api/imports', ['file' => $this->reference()]);

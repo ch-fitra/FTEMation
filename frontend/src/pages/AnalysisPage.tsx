@@ -1,6 +1,8 @@
+import ActivityAnalysisDialog from "../components/ActivityAnalysisDialog";
+import OpportunityCards from "../components/OpportunityCards";
 import Select from "../components/Select";
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import ErrorAlert from "../components/ErrorAlert";
 import MetricCard from "../components/MetricCard";
 import { api, errorMessages } from "../lib/http";
@@ -15,26 +17,38 @@ const statusLabel: Record<string, string> = {
     partial_failed: "Sebagian gagal",
     failed: "Gagal",
 };
-const factorLabel: Record<string, string> = {
-    repetitiveness: "Pengulangan",
-    rule_clarity: "Kejelasan aturan",
-    data_structure: "Struktur data",
-    human_judgment: "Pertimbangan manusia",
-    operational_risk: "Risiko operasional",
-};
-
 export default function AnalysisPage({
     importId,
     onComplete,
+    model,
 }: {
     importId: number | null;
     onComplete: () => void;
+    model?: string;
 }) {
+    const [params, setParams] = useSearchParams();
+    const dialog = useRef<HTMLDialogElement>(null);
+    const mounted = useRef(true);
+    useEffect(() => {
+        mounted.current = true;
+        return () => { mounted.current = false; };
+    }, []);
+    const activityId = params.get("activity");
+    const requestedRun = Number(params.get("run"));
+    function openDetail(id: string) {
+        setParams({ dataset: String(importId), run: String(runId), activity: id });
+    }
     const [history, setHistory] = useState<{ id: number; status: string }[]>(
         [],
     );
     const [runId, setRunId] = useState<number | null>(null);
-    const [run, setRun] = useState<AnalysisRun | null>(null);
+    const [fetchedRun, setRun] = useState<AnalysisRun | null>(null);
+    const run = fetchedRun?.id === runId && (!requestedRun || fetchedRun.id === requestedRun) ? fetchedRun : null;
+    const selectedActivity = run?.report?.activities.find((a) => a.activity_id === activityId);
+    useEffect(() => {
+        if (selectedActivity) dialog.current?.showModal();
+        else if (!activityId) dialog.current?.close();
+    }, [selectedActivity, activityId]);
     const [errors, setErrors] = useState<string[]>([]);
     const [busy, setBusy] = useState(false);
     const [download, setDownload] = useState("");
@@ -49,9 +63,10 @@ export default function AnalysisPage({
             signal: controller.signal,
         })
             .then(({ data }) => {
+                if (controller.signal.aborted) return;
                 setHistory(data);
                 setRunId((id) =>
-                    data.some((r: { id: number }) => r.id === id)
+                    requestedRun > 0 ? requestedRun : data.some((r: { id: number }) => r.id === id)
                         ? id
                         : (data[0]?.id ?? null),
                 );
@@ -60,7 +75,7 @@ export default function AnalysisPage({
                 if (!controller.signal.aborted) setErrors(errorMessages(e));
             });
         return () => controller.abort();
-    }, [importId, version]);
+    }, [importId, version, requestedRun]);
     useEffect(() => {
         if (!runId) return;
         const controller = new AbortController();
@@ -72,6 +87,10 @@ export default function AnalysisPage({
                     { signal: controller.signal },
                 );
                 if (controller.signal.aborted) return;
+                if (data.import_id !== importId) {
+                    setErrors(["Run ini bukan bagian dari dataset aktif. Pilih run yang sesuai dari riwayat."]);
+                    return;
+                }
                 setRun(data);
                 setHistory((items) =>
                     items.map((item) =>
@@ -96,6 +115,7 @@ export default function AnalysisPage({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [runId, version]);
     async function start(retry = false) {
+        if (!window.confirm("Analisis mengirim data aktivitas ke layanan AI dan dapat menggunakan saldo API. Lanjutkan?")) return;
         setBusy(true);
         setErrors([]);
         try {
@@ -104,8 +124,10 @@ export default function AnalysisPage({
                     ? `/api/analyses/${runId}/retry`
                     : `/api/imports/${importId}/analyses`,
             );
+            if (!mounted.current) return;
             setRun(null);
             setRunId(data.run.id);
+            setParams({ dataset: String(importId), run: String(data.run.id) });
             setVersion((v) => v + 1);
         } catch (e) {
             setErrors(errorMessages(e));
@@ -163,16 +185,22 @@ export default function AnalysisPage({
     );
     return (
         <div className="analysis-page">
+            <ActivityAnalysisDialog dialogRef={dialog} activity={selectedActivity} savingRate={report?.calculation.saving_rates[selectedActivity?.automation_level ?? ""]} onClose={() => {
+                if (!params.has("activity")) return;
+                const next = new URLSearchParams(params);
+                next.delete("activity");
+                setParams(next, { replace: true });
+            }} />
             <section className="panel analysis-toolbar">
                 <div>
                     <span className="eyebrow">AUTOMATION INTELLIGENCE</span>
                     <h2>Peluang yang dapat ditindaklanjuti</h2>
                     <p>
-                        Temukan aktivitas yang berpotensi diotomatisasi, tinjau rekomendasinya, lalu tentukan langkah berikutnya.
+                        {report ? `Hasil run #${runId}. Melihat hasil sebelumnya tidak membutuhkan request AI baru.` : `Penilaian teks menggunakan layanan DeepSeek${model ? ` (${model})` : ""}. FTE dan saving dihitung oleh Laravel.`}
                     </p>
                 </div>
                 <button
-                    className="primary"
+                    className={report ? "secondary" : "primary"}
                     disabled={busy || !!active}
                     onClick={() => void start()}
                 >
@@ -180,16 +208,11 @@ export default function AnalysisPage({
                         ? "Memproses…"
                         : active
                           ? "Analisis berjalan"
-                          : "Mulai analisis"}
+                          : report ? "Analisis Ulang" : "Mulai analisis"}
                 </button>
             </section>
-            <ol className="analysis-steps" aria-label="Alur analisis">
-                <li><span>1</span><div><strong>Analisis dataset</strong><small>AI menilai peluang setiap aktivitas.</small></div></li>
-                <li><span>2</span><div><strong>Tinjau prioritas</strong><small>Bandingkan saving, risiko, dan rekomendasi.</small></div></li>
-                <li><span>3</span><div><strong>Rencanakan implementasi</strong><small>Validasi dengan pemilik proses, lalu unduh hasil.</small></div></li>
-            </ol>
             <ErrorAlert messages={errors} />
-            {history.length > 0 && (
+            {history.length > 0 && (<details className="analysis-history-disclosure"><summary>Riwayat analisis & pilihan run #{runId}</summary>
                 <label className="analysis-history">
                     Riwayat analisis
                     <Select
@@ -197,8 +220,10 @@ export default function AnalysisPage({
                         onChange={(e) => {
                             setRun(null);
                             setRunId(Number(e.target.value));
+                            setParams({ dataset: String(importId), run: e.target.value });
                         }}
                     >
+                        {run && !history.some((r) => r.id === runId) && <option value={run.id}>Analisis {run.id} (tautan langsung)</option>}
                         {history.map((r) => (
                             <option key={r.id} value={r.id}>
                                 Analisis {r.id} ·{" "}
@@ -206,7 +231,7 @@ export default function AnalysisPage({
                             </option>
                         ))}
                     </Select>
-                </label>
+                </label></details>
             )}
             {!run && (
                 <p role="status">
@@ -215,11 +240,11 @@ export default function AnalysisPage({
                         : "Belum ada analisis. Mulai untuk menilai seluruh aktivitas dalam dataset ini."}
                 </p>
             )}
-            {run && (
+            {run && run.status !== "completed" && (
                 <section className="panel analysis-status" aria-live="polite">
                     <div>
                         <strong>{statusLabel[run.status] ?? run.status}</strong>
-                        <p>{run.progress.success ?? 0} dari {run.total} aktivitas berhasil dianalisis.</p>
+                        <p>{run.progress.success ?? 0} dari {run.total} aktivitas berhasil dianalisis ({Math.floor((run.progress.success ?? 0) / Math.max(1, run.total) * 100)}%). {run.progress.failed ?? 0} gagal.</p>
                         <progress aria-label="Kemajuan analisis aktivitas" max={Math.max(1, run.total)} value={run.progress.success ?? 0} />
                         <p className="muted">{run.status === "completed" ? "Hasil siap ditinjau dan diunduh." : active ? "Hasil lengkap akan tersedia setelah seluruh aktivitas dan kesimpulan selesai." : "Tinjau kendala di bawah, lalu coba kembali aktivitas yang gagal."}</p>
                         <details className="analysis-technical"><summary>Detail proses analisis</summary>
@@ -242,7 +267,7 @@ export default function AnalysisPage({
                         </button>
                     )}
                     {run.error_message && (
-                        <p className="analysis-error">{run.error_message}</p>
+                        <details className="analysis-error"><summary>Detail kendala analisis</summary><p>{run.error_message}</p></details>
                     )}
                     {run.failures.length > 0 && (
                         <details>
@@ -265,7 +290,7 @@ export default function AnalysisPage({
                     )}
                 </section>
             )}
-            {report && (
+            {report && run?.status === "completed" && (
                 <>
                     <div className="metrics">
                         <MetricCard
@@ -296,6 +321,8 @@ export default function AnalysisPage({
                             icon="users"
                         />
                     </div>
+                    <section className="panel"><h2>Top 3 peluang otomatisasi</h2><OpportunityCards activities={ranked} importId={importId} runId={runId} onDetail={openDetail} /></section>
+                    <details className="analysis-technical"><summary>Metadata hasil run #{runId}</summary><p>{run.actual_model ?? run.model_name} | {run.requests_count} request | {run.input_tokens + run.output_tokens} token | {run.cache_hits} dari cache. Status: {statusLabel[run.status]}.</p></details>
                     <section className="panel analysis-results">
                         <div className="panel-heading">
                             <div>
@@ -318,12 +345,13 @@ export default function AnalysisPage({
                                 ))}
                             </div>
                         </div>
-                        <div className="analysis-reading-guide">
-                            <strong>Cara membaca hasil</strong>
+                        <details className="analysis-reading-guide">
+                            <summary>Cara membaca hasil</summary>
                             <p>Mulai dari prioritas tertinggi. Saving adalah estimasi kapasitas waktu dalam FTE; skor prioritas mempertimbangkan saving, risiko, dan kesulitan implementasi.</p>
                             <span>High: mayoritas langkah · Medium: sebagian langkah · Low: bantuan terbatas. Keputusan dan pengawasan tetap pada manusia.</span>
                             <p>Persetujuan rutin berarti manusia menyetujui setiap transaksi. Review pengecualian berlaku untuk kasus di luar kriteria. Keputusan final berisiko tetap pada manusia berwenang. Label AI tidak merinci seluruh jenis kontrol; konfirmasi peran dan pemicu bersama pemilik proses.</p>
-                        </div>
+                            <p>Skor prioritas bukan probabilitas keberhasilan. Estimated saving belum menjadi efisiensi yang terealisasi.</p>
+                        </details>
                         {!!run?.consistency_review?.length && (
                             <details className="analysis-reading-guide">
                                 <summary>Review konsistensi: {run.consistency_review.length} kelompok dengan level berbeda</summary>
@@ -407,7 +435,7 @@ export default function AnalysisPage({
                                     <table>
                                         <thead>
                                             <tr>
-                                                <th>Aktivitas / rekomendasi</th>
+                                                <th>Aktivitas / departemen</th>
                                                 <th>Level</th>
                                                 <th>FTE</th>
                                                 <th>Saving</th>
@@ -426,64 +454,7 @@ export default function AnalysisPage({
                                                         <strong>
                                                             {a.activity_name}
                                                         </strong>
-                                                        <p>
-                                                            {a.recommendation}
-                                                        </p>
-                                                        <details>
-                                                            <summary>
-                                                                Alasan dan
-                                                                faktor penilaian
-                                                            </summary>
-                                                            <p>{a.reason}</p>
-                                                            <p>
-                                                                Grouping:{" "}
-                                                                {a.group_name}
-                                                            </p>
-                                                            <dl className="analysis-factors">
-                                                                {Object.entries(
-                                                                    a.factors,
-                                                                ).map(
-                                                                    ([
-                                                                        k,
-                                                                        v,
-                                                                    ]) => (
-                                                                        <div
-                                                                            key={
-                                                                                k
-                                                                            }
-                                                                        >
-                                                                            <dt>
-                                                                                {factorLabel[
-                                                                                    k
-                                                                                ] ??
-                                                                                    k}
-                                                                            </dt>
-                                                                            <dd>
-                                                                                {
-                                                                                    v
-                                                                                }
-                                                                            </dd>
-                                                                        </div>
-                                                                    ),
-                                                                )}
-                                                            </dl>
-                                                            <p>
-                                                                Risiko:{" "}
-                                                                {a.risk_level} ·
-                                                                Effort:{" "}
-                                                                {a.effort_level}
-                                                            </p>
-                                                            <p>
-                                                                Kontrol manusia menurut label AI:{" "}
-                                                                {a.oversight_required
-                                                                    ? "Diwajibkan. Lihat catatan untuk persetujuan rutin, review pengecualian, atau keputusan final."
-                                                                    : "Tidak diwajibkan oleh label; bukan jaminan tanpa manusia. Review pengecualian tetap mengikuti rekomendasi. Konfirmasi pemicu dan penanggung jawab dengan pemilik proses."}
-                                                                {" "}
-                                                                {
-                                                                    a.oversight_note
-                                                                }
-                                                            </p>
-                                                        </details>
+                                                        <button className="text-button" onClick={() => openDetail(a.activity_id)}>Lihat detail →</button>
                                                     </td>
                                                     <td>
                                                         <span

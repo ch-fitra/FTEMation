@@ -1,0 +1,30 @@
+/* Decision workspace: preserve the existing brand and shared components. */
+.dataset-context {display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px 20px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:24px;}
+.dataset-context label {display:grid;gap:6px;min-width:0;max-width:540px;flex:1;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.04em;}
+.dataset-context p {margin:0;color:var(--muted);font-size:13px;}
+.decision-heading {display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:24px;}
+.decision-heading h2 {font-size:26px;line-height:1.25;margin:6px 0;}
+.decision-heading p {color:var(--muted);margin:8px 0;}
+.opportunity-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;margin:16px 0;}
+.opportunity-grid article {padding:18px;border:1px solid var(--border);border-radius:10px;min-width:0;overflow-wrap:anywhere;}
+.opportunity-grid article:first-child {border-top:3px solid var(--primary);}
+.opportunity-grid h3 {font-size:17px;line-height:1.4;margin:12px 0;}
+.opportunity-grid p {color:var(--muted);font-size:13px;}
+.spotlight {margin-bottom:24px;}
+.methodology {align-self:start;}
+summary {cursor:pointer;font-weight:600;min-height:32px;}
+.activity-dialog {width:min(760px,calc(100% - 24px));max-height:88dvh;overflow:auto;border:1px solid var(--border);border-radius:14px;padding:24px;color:var(--text);box-shadow:0 24px 80px #071e4530;}
+.activity-dialog::backdrop {background:#071e4580;}
+.activity-dialog > button {position:sticky;top:0;float:right;}
+.activity-dialog h2 {clear:both;}
+.analysis-history-disclosure {padding:8px 0;}
+.analysis-activity {padding-top:12px;padding-bottom:12px;}
+.analysis-page .analysis-toolbar {padding:18px 22px;}
+.journey {text-align:left;display:inline-grid;gap:8px;}
+:focus-visible {outline:3px solid var(--primary);outline-offset:3px;}
+@media(max-width:1024px) {.dataset-context {align-items:stretch;flex-direction:column;gap:10px;}.dataset-context label{max-width:none;}.opportunity-grid {gap:12px;}}
+@media(max-width:767px) {.opportunity-grid{grid-template-columns:1fr;}.decision-heading{align-items:stretch;flex-direction:column;gap:12px;}.dataset-context{padding:12px;}.decision-heading h2{font-size:22px;}.activity-dialog{padding:16px;}.main-shell,.content,.panel{min-width:0;} .dataset-context p{overflow-wrap:anywhere;}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;}}
+
+.analysis-page .analysis-toolbar > button.secondary {background:var(--surface);border-color:var(--border);color:var(--text);}
+.analysis-activity .text-button {min-height:44px;}

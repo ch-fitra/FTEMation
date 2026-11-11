@@ -112,6 +112,8 @@ export default function ImportsPage({
                 <section className="panel">
                     <span className="eyebrow">PANDUAN INPUT</span>
                     <h2>Sembilan kolom wajib</h2>
+                    <a className="button" href="/api/import-template">Unduh Template Excel</a>
+                    <p className="muted">Berisi satu contoh sintetis. Ganti dengan aktivitas Anda sebelum mengimpor. Validasi isi dilakukan saat import.</p>
                     <p className="muted">
                         Header di baris pertama, sesuai urutan berikut.
                     </p>

@@ -58,6 +58,7 @@ export interface Report {
     interpretation: string;
 }
 export interface AnalysisRun {
+    import_id: number;
     id: number;
     status: string;
     summary_status: string;

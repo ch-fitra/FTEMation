@@ -201,3 +201,9 @@ node scripts/review-ai-quality.mjs
 ```
 
 Skrip pertama hanya membaca tabel domain dan menghitung hash; tidak mencetak kredensial atau isi data pribadi. Skrip kedua membaca completed run, memeriksa perhitungan dan kesetaraan Excel/JSON, lalu menulis preview ke `storage/framework/testing/quality/`, bukan folder export historis. Skrip browser memerlukan Playwright pada folder sementara `ftemation-ui-review` dan Chrome; memeriksa Run #4 secara read-only serta memblokir mutasi selain login/logout.
+
+## Decision workspace dan verifikasi UI
+
+Overview menampilkan KPI dan tiga prioritas dari completed run yang sama. Dataset aktif ditampilkan di seluruh workspace; tautan detail menggunakan `dataset`, `run`, dan `activity` pada URL. Pergantian dataset mereset halaman aktivitas/analisis dan mengabaikan respons lama. Template Excel tersedia pada halaman Import melalui endpoint privat `/api/import-template`.
+
+Jalankan `node scripts/review-ui-ux.mjs` dengan server lokal aktif dan Playwright/Chrome tersedia pada folder sementara `ftemation-ui-review`. Skrip memakai respons API sintetis terisolasi, memblokir seluruh mutasi API, memeriksa enam breakpoint serta race pergantian dataset, dan menyimpan screenshot di `storage/framework/testing/ui-ux/`. Tidak menjalankan inference. Lihat [laporan UI/UX](docs/UI_UX_REFINEMENT_REPORT.md) dan [panduan desain](docs/UI_DESIGN.md).

@@ -47,12 +47,13 @@ try {
         await page.getByLabel('Cari hasil', {exact:true}).fill(id);
         const row = page.locator('tbody tr').filter({hasText:id});
         await row.waitFor();
-        await row.locator('summary').click();
-        await row.locator('details[open]').waitFor();
+        await row.getByRole('button', {name:/Lihat detail/}).click();
+        await page.locator('dialog[open]').waitFor();
         const original = data.report.activities.find(a => a.activity_id === id);
         assert.equal(original.oversight_required,false);
-        assert.match(await row.innerText(), /bukan jaminan tanpa manusia/);
-        assert((await row.innerText()).includes(original.recommendation));
+        assert.match(await page.locator('dialog').innerText(), /bukan jaminan tanpa manusia/);
+        assert((await page.locator('dialog').innerText()).includes(original.recommendation));
+        await page.keyboard.press('Escape');
     }
     checks.push('All five audited exception cases: false flags explained beside unchanged recommendations');
     await page.getByRole('button', {name:'Karyawan',exact:true}).click();

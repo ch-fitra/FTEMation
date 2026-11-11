@@ -69,6 +69,21 @@ class WorkloadWorkbookReader
                     'frequency' => ['required', 'in:daily,weekly,monthly'],
                     'volume' => ['required', 'numeric', 'gt:0', 'max:999999999', 'decimal:0,6'],
                     'duration_minutes' => ['required', 'numeric', 'gt:0', 'max:999999999', 'decimal:0,6'],
+                ], [
+                    'required' => ':attribute wajib diisi.',
+                    'string' => ':attribute harus berupa teks.',
+                    'max.string' => ':attribute maksimal :max karakter.',
+                    'max.numeric' => ':attribute maksimal :max.',
+                    'regex' => ':attribute harus diawali huruf/angka dan hanya berisi huruf, angka, titik, garis bawah, atau tanda hubung.',
+                    'in' => ':attribute harus daily, weekly, atau monthly.',
+                    'numeric' => ':attribute harus berupa angka.',
+                    'gt' => ':attribute harus lebih besar dari :value.',
+                    'decimal' => ':attribute maksimal 6 angka desimal.',
+                ], [
+                    'activity_id' => 'ID aktivitas', 'employee_id' => 'ID karyawan',
+                    'employee_name' => 'Nama karyawan', 'department' => 'Departemen',
+                    'activity_name' => 'Nama aktivitas', 'description' => 'Deskripsi',
+                    'frequency' => 'Frekuensi', 'volume' => 'Volume', 'duration_minutes' => 'Durasi menit',
                 ]);
                 if ($validator->fails()) {
                     foreach ($validator->errors()->messages() as $field => $messages) {

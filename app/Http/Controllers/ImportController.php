@@ -7,11 +7,30 @@ use App\Http\Requests\ImportWorkloadRequest;
 use App\Models\WorkloadImport;
 use App\Services\Workload\WorkloadImportService;
 use App\Services\Workload\WorkloadSummaryService;
+use App\Services\Workload\WorkloadWorkbookReader;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ImportController extends Controller
 {
+    public function template(): StreamedResponse
+    {
+        return response()->streamDownload(function () {
+            $book = new Spreadsheet;
+            try {
+                $book->getActiveSheet()->setTitle('Workload');
+                $book->getActiveSheet()->fromArray(WorkloadWorkbookReader::HEADERS);
+                $book->getActiveSheet()->fromArray(['ACT-001', 'EMP-001', 'Karyawan Contoh', 'Operasional', 'Rekap laporan harian', 'Merekap jumlah permintaan dari tabel kerja harian.', 'daily', 1, 30], null, 'A2');
+                (new Xlsx($book))->save('php://output');
+            } finally {
+                $book->disconnectWorksheets();
+            }
+        }, 'FTEMation-Template.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+    }
+
     public function index(Request $request): JsonResponse
     {
         return response()->json($request->user()->imports()->withCount(['activities', 'employees'])->latest('id')->paginate(20));

@@ -81,6 +81,20 @@ class AnalysisTest extends TestCase
         }
     }
 
+    public function test_dashboard_opportunities_match_completed_report_priority_and_snapshot(): void
+    {
+        $import = $this->dataset();
+        $this->fakeProvider();
+        $run = app(AnalysisRunService::class)->start($import);
+        $this->finish($run);
+        $report = app(AnalysisReportService::class)->build($run->refresh());
+        $summary = app(WorkloadSummaryService::class)->summarize($import);
+        $this->assertSame(array_slice($report['priorities'], 0, 3), array_column($summary['top_opportunities'], 'activity_id'));
+        $this->assertSame($run->id, $summary['analysis_run_id']);
+        $this->assertSame($report['totals']['estimated_fte_saving'], $summary['estimated_fte_saving']);
+        $this->assertSame($report['totals']['oversight_count'], $summary['oversight_count']);
+    }
+
     public function test_database_worker_retries_lock_contention_without_repeating_successes(): void
     {
         $realQueue = app('queue');
