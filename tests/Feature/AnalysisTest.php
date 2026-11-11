@@ -10,6 +10,9 @@ use App\Services\Analysis\AnalysisException;
 use App\Services\Analysis\AnalysisExportService;
 use App\Services\Analysis\AnalysisReportService;
 use App\Services\Analysis\AnalysisRunService;
+use App\Services\Analysis\ConsistencyReview;
+use App\Services\Analysis\DeepSeekClient;
+use App\Services\Analysis\ReportGuidance;
 use App\Services\Workload\WorkloadSummaryService;
 use Database\Seeders\ActivityGroupSeeder;
 use Illuminate\Contracts\Queue\Job;
@@ -396,5 +399,191 @@ class AnalysisTest extends TestCase
         } finally {
             unlink($path);
         }
+    }
+
+    public function test_v2_changes_cache_without_rewriting_v1_snapshot_or_results(): void
+    {
+        $import = $this->dataset();
+        $this->fakeProvider();
+        $service = app(AnalysisRunService::class);
+        config(['ftemation.ai.prompt_version' => 'activity-v1', 'ftemation.ai.summary_version' => 'summary-v1']);
+        $old = $service->start($import);
+        $this->finish($old);
+        $original = $old->refresh()->getAttributes();
+        $analyses = $old->analyses()->orderBy('id')->get()->toJson();
+        config(['ftemation.ai.prompt_version' => 'activity-v2', 'ftemation.ai.summary_version' => 'summary-v2']);
+        $new = $service->start($import);
+        $this->finish($new);
+        $this->assertSame('activity-v2', $new->prompt_version);
+        $this->assertSame('summary-v2', $new->config_snapshot['summary_version']);
+        $this->assertNotSame($old->config_snapshot['ai_fingerprint'], $new->config_snapshot['ai_fingerprint']);
+        $this->assertSame(file_get_contents(resource_path('prompts/activity-v2.txt')), $new->config_snapshot['prompts']['activity']);
+        $this->assertSame(file_get_contents(resource_path('prompts/activity-v1.txt')), $old->config_snapshot['prompts']['activity']);
+        $this->assertSame($original, $old->refresh()->getAttributes());
+        $this->assertSame($analyses, $old->analyses()->orderBy('id')->get()->toJson());
+        $this->assertSame(0, $new->analyses()->where('cache_hit', true)->count());
+        Http::assertSentCount(26);
+        // Snapshot retry/resume never reads the active prompt file.
+        Http::assertSent(fn ($request) => $request['messages'][0]['content'] === $old->config_snapshot['prompts']['activity']);
+        Http::assertSent(fn ($request) => $request['messages'][0]['content'] === $new->config_snapshot['prompts']['activity']);
+    }
+
+    public function test_offline_pairs_preserve_valid_disagreement_and_flag_advisory_candidates(): void
+    {
+        $import = $this->dataset();
+        $run = app(AnalysisRunService::class)->start($import);
+        $pairs = [
+            ['Invoice matching Finance', 'Invoice dan PO dicocokkan; data penerimaan barang belum dikonfirmasi.', 'Rekonsiliasi Procurement', 'Invoice dan PO dengan perubahan termin dan persetujuan exception.', 'data_reconciliation', 'data_reconciliation', 'high', 'medium'],
+            ['Input data Finance', 'Menyalin field terstruktur sesuai sumber.', 'Input data HR', 'Menyalin field terstruktur sesuai sumber.', 'structured_record_entry', 'structured_record_entry', 'high', 'high'],
+            ['Laporan rutin', 'Kompilasi data rutin ke format tetap.', 'Investigasi', 'Investigasi penyebab selisih memerlukan interpretasi.', 'periodic_reporting', 'exception_investigation', 'high', 'low'],
+            ['Administrasi pembayaran', 'Menyiapkan daftar pembayaran untuk persetujuan.', 'Persetujuan pembayaran', 'Pejabat memutuskan pembayaran final.', 'structured_record_entry', 'high_impact_decision', 'high', 'low'],
+            ['Tugas berulang', 'Menyalin catatan rutin berisiko rendah.', 'Keputusan strategis', 'Memutuskan arah investasi strategis.', 'structured_record_entry', 'high_impact_decision', 'high', 'low'],
+        ];
+        foreach ($pairs as [$left, $leftDescription, $right, $rightDescription, $leftGroup, $rightGroup, $leftLevel, $rightLevel]) {
+            $input = ['activities' => [
+                ['activity_id' => 'LEFT', 'activity_name' => $left, 'description' => $leftDescription, 'department' => 'Finance'],
+                ['activity_id' => 'RIGHT', 'activity_name' => $right, 'description' => $rightDescription, 'department' => $right === 'Input data HR' ? 'HR' : 'Procurement'],
+            ]];
+            // Authored rubric references, NOT model predictions or verified ground truth.
+            $answer = $this->answer($input);
+            foreach ([[$leftGroup, $leftLevel], [$rightGroup, $rightLevel]] as $i => [$group, $level]) {
+                $row = &$answer['activities'][$i];
+                $row['group_id'] = $group;
+                $row['automation_level'] = $level;
+                $row['automation_scope'] = ['high' => 'majority_steps', 'medium' => 'partial_steps', 'low' => 'assist_only'][$level];
+                $row['reason'] = $input['activities'][$i]['description'];
+                $row['factors']['human_judgment'] = $level === 'low' ? 'high' : ($level === 'high' ? 'low' : 'medium');
+                $row['factors']['operational_risk'] = $level === 'low' ? 'high' : 'medium';
+                if ($level === 'high') {
+                    $row['factors']['rule_clarity'] = 'high';
+                    $row['factors']['data_structure'] = 'high';
+                }
+                $row['recommendation'] = $group === 'data_reconciliation'
+                    ? 'Mulai matching invoice dan PO dari field tersedia; toleransi harus dikonfirmasi. Jika data penerimaan barang tersedia dan tervalidasi, pertimbangkan three-way matching.'
+                    : 'Bantu langkah administratif berdasarkan data tersedia. Konfirmasi prasyarat dan pertahankan kewenangan keputusan final pada pemilik proses.';
+                unset($row);
+            }
+            Http::swap(new Factory);
+            Http::preventStrayRequests();
+            Http::fake(function ($request) use ($answer, $input) {
+                $this->assertSame($input, json_decode($request['messages'][1]['content'], true));
+                $prompt = $request['messages'][0]['content'];
+                foreach (['two-way matching', 'three-way matching', 'belum dikonfirmasi', 'group_id sama tidak mewajibkan level identik', 'Perlu review pemilik proses', 'Routine human approval', 'Exception review', 'Human decision required'] as $instruction) {
+                    $this->assertStringContainsString($instruction, $prompt);
+                }
+
+                return Http::response(['choices' => [['finish_reason' => 'stop', 'message' => ['content' => json_encode($answer)]]]]);
+            });
+            $rows = app(DeepSeekClient::class)->json($run, $run->config_snapshot['prompts']['activity'], $input, fn ($data) => app(AiOutputValidator::class)->activities($data, ['LEFT', 'RIGHT'], array_column($run->config_snapshot['taxonomy'], 'code')));
+            $this->assertSame([$leftLevel, $rightLevel], array_column($rows, 'automation_level'));
+            $before = $rows;
+            $review = app(ConsistencyReview::class)->candidates($rows);
+            $this->assertSame($before, $rows);
+            $this->assertCount($leftGroup === $rightGroup && $leftLevel !== $rightLevel ? 1 : 0, $review);
+            if ($review) {
+                $this->assertSame('needs_review', $review[0]['status']);
+                $this->assertSame($rightDescription, $review[0]['activities'][1]['reason']);
+            }
+            Http::assertSentCount(1);
+        }
+    }
+
+    public function test_high_risk_controls_and_exception_only_presentation_remain_compatible(): void
+    {
+        $validator = app(AiOutputValidator::class);
+        foreach (['Keputusan finansial', 'Perubahan rekening', 'Keputusan rekrutmen', 'Keputusan keselamatan'] as $name) {
+            $data = $this->answer(['activities' => [['activity_id' => $name]]]);
+            $row = &$data['activities'][0];
+            $row['automation_level'] = 'low';
+            $row['automation_scope'] = 'assist_only';
+            $row['group_id'] = 'high_impact_decision';
+            $row['factors']['operational_risk'] = 'high';
+            $row['factors']['human_judgment'] = 'high';
+            $row['oversight_note'] = 'Keputusan final oleh manusia berwenang.';
+            $this->assertCount(1, $validator->activities($data, [$name], ['high_impact_decision']));
+            $row['human_oversight_required'] = false;
+            try {
+                $validator->activities($data, [$name], ['high_impact_decision']);
+                $this->fail('High-risk decision must require human control.');
+            } catch (AnalysisException) {
+                $this->assertTrue(true);
+            }
+            unset($row);
+        }
+        $exception = $this->answer(['activities' => [['activity_id' => 'FAQ']]]);
+        $exception['activities'][0]['human_oversight_required'] = false;
+        $exception['activities'][0]['oversight_note'] = 'Pertanyaan di luar FAQ dialihkan ke agen.';
+        $this->assertFalse($validator->activities($exception, ['FAQ'], ['assisted_classification'])[0]['human_oversight_required']);
+        $this->assertStringContainsString('bukan jaminan tanpa manusia', ReportGuidance::oversight(false));
+        $this->assertStringContainsString('keputusan final', ReportGuidance::oversight(true));
+    }
+
+    public function test_executive_workbook_preserves_all_activity_values_and_json_contract(): void
+    {
+        $import = $this->dataset();
+        $this->fakeProvider();
+        $run = app(AnalysisRunService::class)->start($import);
+        $this->finish($run);
+        $report = app(AnalysisReportService::class)->build($run->refresh());
+        $report['actual_model'] = '=HYPERLINK("https://example.com")';
+        $response = app(AnalysisExportService::class)->download($report, 'xlsx');
+        ob_start();
+        $response->sendContent();
+        $bytes = ob_get_clean();
+        $path = tempnam(sys_get_temp_dir(), 'fte-quality-');
+        file_put_contents($path, $bytes);
+        try {
+            $book = IOFactory::load($path);
+            $this->assertSame(['Overview', 'Employees', 'Departments', 'Groups', 'Activities', 'Assumptions'], $book->getSheetNames());
+            $overview = $book->getSheetByName('Overview');
+            $this->assertSame('s', $overview->getCell('D4')->getDataType());
+            $this->assertSame($report['actual_model'], $overview->getCell('D4')->getValue());
+            $this->assertEquals(round($report['totals']['total_fte'], 6), $overview->getCell('D14')->getValue());
+            $this->assertEquals(round($report['totals']['estimated_fte_saving'], 6), $overview->getCell('D15')->getValue());
+            $this->assertSame(60, $overview->getCell('D10')->getValue());
+            $this->assertSame(60, $overview->getCell('D23')->getValue());
+            $this->assertSame(1, $overview->getCell('E23')->getValue());
+            $this->assertSame('0.0%', $overview->getStyle('E23')->getNumberFormat()->getFormatCode());
+            $sheet = $book->getSheetByName('Activities');
+            $this->assertSame('A2', $sheet->getFreezePane());
+            $this->assertNotEmpty($sheet->getAutoFilter()->getRange());
+            $table = $sheet->toArray(null, false, false);
+            $headers = array_shift($table);
+            $this->assertSame(array_keys($report['activities'][0]), $headers);
+            foreach ($report['activities'] as $i => $activity) {
+                foreach ($headers as $column => $key) {
+                    $expected = $activity[$key];
+                    $expected = is_array($expected) ? json_encode($expected, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) : (is_bool($expected) ? ($expected ? 'Yes' : 'No') : (is_float($expected) ? round($expected, 6) : $expected));
+                    $this->assertEquals($expected, $table[$i][$column], $activity['activity_id'].' '.$key);
+                }
+            }
+            $json = json_decode(app(AnalysisExportService::class)->download($report, 'json')->getContent(), true, flags: JSON_THROW_ON_ERROR);
+            $this->assertCount(60, array_unique(array_column($json['activities'], 'activity_id')));
+            foreach ($json['activities'] as $activity) {
+                foreach (['activity_id', 'automation_level', 'reason', 'recommendation', 'group_id', 'fte', 'estimated_fte_saving', 'status'] as $key) {
+                    $this->assertArrayHasKey($key, $activity);
+                }
+                $this->assertSame('success', $activity['status']);
+            }
+        } finally {
+            unlink($path);
+        }
+    }
+
+    public function test_workload_above_one_is_informative_and_uses_completed_snapshot(): void
+    {
+        $import = $this->dataset();
+        $this->fakeProvider();
+        $run = app(AnalysisRunService::class)->start($import);
+        $this->finish($run);
+        // Only the isolated SQLite fixture is changed; not a historical application run.
+        $activity = $import->activities()->firstOrFail();
+        $activity->update(['volume' => 1000]);
+        $summary = app(WorkloadSummaryService::class)->summarize($import);
+        $this->assertStringContainsString(ReportGuidance::WORKLOAD, implode(' ', $summary['warnings']));
+        $this->assertGreaterThan(1, app(AnalysisReportService::class)->build($run)['employees'][0]['total_fte']);
+        config(['ftemation.annual_capacity_minutes' => 1e15]);
+        $this->assertSame($summary['warnings'], app(WorkloadSummaryService::class)->summarize($import)['warnings']);
+        $this->assertSame($summary['total_fte'], app(WorkloadSummaryService::class)->summarize($import)['total_fte']);
     }
 }

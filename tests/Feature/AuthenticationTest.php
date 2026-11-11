@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use Database\Seeders\DemoUserSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -17,7 +18,7 @@ class AuthenticationTest extends TestCase
         config(['ftemation.demo_password' => 'admin123']);
         $this->seed(DemoUserSeeder::class);
         $user = User::firstOrFail();
-        $this->assertTrue(Hash::check('admin123', $user->password));
+        $this->assertSame('admin123', $user->password);
         $response = $this->postJson('/api/login', ['username' => $user->username, 'password' => 'admin123']);
         $response->assertJsonPath('user.name', 'Demo')->assertJsonPath('user.username', 'akun demo');
         $response->assertOk()->assertJsonPath('user.email', $user->email)->assertJsonMissingPath('user.password')->assertJsonMissingPath('token');
@@ -25,6 +26,31 @@ class AuthenticationTest extends TestCase
         $this->withHeader('Origin', 'http://localhost:5173')->getJson('/api/user')->assertOk();
         $this->postJson('/api/logout')->assertOk();
         $this->assertGuest('web');
+    }
+
+    public function test_existing_hash_is_preserved_on_failure_and_converted_after_success(): void
+    {
+        $user = User::factory()->create(['password' => Hash::make('Legacy-Password!')]);
+        $hashed = $user->password;
+        $this->postJson('/api/login', ['username' => $user->username, 'password' => 'wrong'])
+            ->assertUnprocessable();
+        $this->assertSame($hashed, $user->fresh()->password);
+        $this->postJson('/api/login', ['username' => $user->username, 'password' => $hashed])
+            ->assertUnprocessable();
+        $this->postJson('/api/login', ['username' => $user->username, 'password' => 'Legacy-Password!'])
+            ->assertOk()->assertJsonMissingPath('user.password');
+        $this->assertSame('Legacy-Password!', $user->fresh()->password);
+    }
+
+    public function test_password_edited_directly_in_database_is_used_for_login(): void
+    {
+        $user = User::factory()->create(['password' => 'Original-Password!']);
+        DB::table('users')->where('id', $user->id)->update(['password' => 'Changed-Password!']);
+        $this->postJson('/api/login', ['username' => $user->username, 'password' => 'Original-Password!'])->assertUnprocessable();
+        $this->postJson('/api/login', ['username' => $user->username, 'password' => 'Changed-Password!'])
+            ->assertOk()->assertJsonMissingPath('user.password');
+        $this->getJson('/api/user')->assertOk()->assertJsonMissingPath('user.password');
+        $this->assertSame('Changed-Password!', $user->fresh()->password);
     }
 
     public function test_guest_cannot_access_private_endpoints(): void
@@ -83,6 +109,6 @@ class AuthenticationTest extends TestCase
         $this->assertSame($originalId, User::firstOrFail()->id);
         $this->assertSame('Demo', User::firstOrFail()->name);
         $this->assertSame('akun demo', User::firstOrFail()->username);
-        $this->assertTrue(Hash::check('Test-Demo-2026!', User::first()->password));
+        $this->assertSame('Test-Demo-2026!', User::first()->password);
     }
 }

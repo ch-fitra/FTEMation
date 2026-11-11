@@ -1,3 +1,4 @@
+import Select from "../components/Select";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import ErrorAlert from "../components/ErrorAlert";
@@ -64,7 +65,6 @@ export default function ActivitiesPage({
             </span>
             <div className="panel-heading">
                 <div>
-                    <span className="eyebrow">WORKLOAD REGISTER</span>
                     <h2>Daftar aktivitas</h2>
                 </div>
                 <span className="subtle-tag">
@@ -86,7 +86,7 @@ export default function ActivitiesPage({
                 </label>
                 <label>
                     Departemen
-                    <select
+                    <Select
                         value={department}
                         onChange={(e) => {
                             setDepartment(e.target.value);
@@ -97,11 +97,11 @@ export default function ActivitiesPage({
                         {summary?.departments.map((d) => (
                             <option key={d.department}>{d.department}</option>
                         ))}
-                    </select>
+                    </Select>
                 </label>
                 <label>
                     Frekuensi
-                    <select
+                    <Select
                         value={frequency}
                         onChange={(e) => {
                             setFrequency(e.target.value);
@@ -112,7 +112,7 @@ export default function ActivitiesPage({
                         {["daily", "weekly", "monthly"].map((f) => (
                             <option key={f}>{f}</option>
                         ))}
-                    </select>
+                    </Select>
                 </label>
             </div>
             <ErrorAlert messages={errors} />

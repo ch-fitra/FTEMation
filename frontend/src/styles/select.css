@@ -1,0 +1,13 @@
+﻿.custom-select { min-width: 0; width: 100%; }
+.custom-select > button { width: 100%; display:flex; align-items:center; justify-content:space-between; gap:16px; text-align:left; min-height:44px; background:var(--surface); color:var(--text); border:1px solid #cbd8e7; border-radius:10px; padding:11px 14px; font-weight:400; }
+.custom-select > button > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.custom-select svg { flex-shrink:0; transition:transform .2s; }
+.custom-select [aria-expanded="true"] { border-color:var(--primary); box-shadow:0 0 0 3px #006eab16; }
+.custom-select [aria-expanded="true"] svg { transform:rotate(180deg); }
+.select-popup { position:fixed; z-index:1000; overflow-y:auto; padding:6px; background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:12px; box-shadow:0 12px 35px #071e4524; opacity:0; visibility:hidden; transform:translateY(-7px); transition:opacity .16s, transform .16s, visibility .16s; }
+.select-popup.is-open { opacity:1; visibility:visible; transform:translateY(0); }
+.select-popup [role="option"] { display:flex; justify-content:space-between; gap:12px; padding:10px 12px; border-radius:7px; cursor:pointer; overflow-wrap:anywhere; }
+.select-popup .is-active { background:#edf6fc; }
+.select-popup [aria-selected="true"] { color:var(--primary); font-weight:600; background:#e8f3fb; }
+.select-popup [aria-disabled="true"] { opacity:.5; cursor:default; }
+@media(prefers-reduced-motion:reduce) { .select-popup,.custom-select svg { transition:none; } }

@@ -32,9 +32,7 @@ try {
             await page.locator(url === '/' ? '.department-chart' : '.analysis-tabs').waitFor();
             assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
             if (url === '/') {
-                assert.match(await page.locator('.ai-notice').innerText(), /Analisis lengkap/);
-                assert.match(await page.locator('.ai-notice').innerText(), /High 21 · Medium 24 · Low 15/);
-                assert.doesNotMatch(await page.locator('.ai-notice').innerText(), /akan ditampilkan/);
+                assert.equal(await page.locator('.ai-notice').count(), 0);
             }
             await page.screenshot({ path: `${out}/${url === '/' ? 'overview' : 'analysis'}-${width}.png`, fullPage: true });
             checks.push(`${url} responsive and completed state ${width}px`);
@@ -47,8 +45,8 @@ try {
         await page.route(`**/api/imports/${id}`, route => route.fulfill({ json: fixture }));
         await page.goto('http://localhost:8000/', { waitUntil: 'networkidle' });
         await page.locator('.department-chart').waitFor();
-        assert.match(await page.locator('.ai-notice').innerText(), new RegExp(label));
-        if (status !== 'not_started') assert.match(await page.locator('.ai-notice').innerText(), new RegExp(`snapshot hasil lengkap #${summary.analysis_run_id}`));
+        assert.equal(await page.locator('.ai-notice').count(), 0);
+        assert.equal(await page.locator('.metric').count(), 4);
         checks.push(`Overview state fixture ${status}`);
         await page.unroute(`**/api/imports/${id}`);
     }

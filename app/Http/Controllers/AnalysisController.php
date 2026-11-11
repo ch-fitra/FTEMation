@@ -7,6 +7,7 @@ use App\Models\WorkloadImport;
 use App\Services\Analysis\AnalysisExportService;
 use App\Services\Analysis\AnalysisReportService;
 use App\Services\Analysis\AnalysisRunService;
+use App\Services\Analysis\ConsistencyReview;
 use Illuminate\Http\Request;
 
 class AnalysisController extends Controller
@@ -38,6 +39,7 @@ class AnalysisController extends Controller
         if ($run->status === 'completed') {
             $reports->assertComplete($run);
             $data['report'] = $reports->build($run);
+            $data['consistency_review'] = app(ConsistencyReview::class)->candidates($data['report']['activities']);
         }
 
         return response()->json($data);

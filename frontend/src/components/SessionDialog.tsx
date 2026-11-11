@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
 
 export type SessionPhase = "confirm" | "pending" | "success" | "error";
@@ -18,6 +18,21 @@ export default function SessionDialog({
 }) {
     const ref = useRef<HTMLDialogElement>(null);
     const login = action === "login";
+    const [closing, setClosing] = useState(false);
+    const closeCallback = useRef(onClose);
+    useEffect(() => { closeCallback.current = onClose; }, [onClose]);
+    // Keep the native dialog mounted and modal until its exit animation finishes.
+    useEffect(() => {
+        if (!closing) return;
+        const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const timer = window.setTimeout(() => closeCallback.current(), reduced ? 100 : 220);
+        return () => window.clearTimeout(timer);
+    }, [closing]);
+    useEffect(() => {
+        if (!login || phase !== "success") return;
+        const timer = window.setTimeout(() => setClosing(true), 1400);
+        return () => window.clearTimeout(timer);
+    }, [login, phase]);
     const titles = {
         confirm: "Apakah Anda yakin?",
         pending: "Memproses...",
@@ -46,14 +61,16 @@ export default function SessionDialog({
             ref={ref}
             className="session-dialog"
             data-phase={phase}
+            data-closing={closing}
             aria-labelledby="session-dialog-title"
             aria-describedby="session-dialog-description"
             onCancel={(event) => {
                 event.preventDefault();
-                if (phase !== "pending") onClose();
+                if (phase !== "pending") setClosing(true);
             }}
         >
             <div
+                key={phase}
                 className={`session-symbol session-symbol-${phase}`}
                 aria-hidden="true"
             >
@@ -90,19 +107,19 @@ export default function SessionDialog({
                     <button className="primary" onClick={onConfirm}>
                         Yakin
                     </button>
-                    <button data-autofocus onClick={onClose}>
+                    <button data-autofocus onClick={() => setClosing(true)}>
                         Batal
                     </button>
                 </div>
             )}
-            {(phase === "error" || (phase === "success" && !login)) && (
+            {phase === "error" && (
                 <div className="session-dialog-actions">
                     <button
                         data-autofocus
                         className="primary"
-                        onClick={onClose}
+                        onClick={() => setClosing(true)}
                     >
-                        OK
+                        Tutup
                     </button>
                 </div>
             )}

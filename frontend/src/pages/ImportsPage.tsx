@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { FormEvent } from "react";
 import ErrorAlert from "../components/ErrorAlert";
 import Pagination from "../components/Pagination";
@@ -24,6 +24,19 @@ export default function ImportsPage({
     lastPage: number;
     onPage: (page: number) => void;
 }) {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const [dragging, setDragging] = useState(false);
+    function choose(files: File[]) {
+        if (busy) return;
+        setDragging(false);
+        if (files.length !== 1 || !files[0].name.toLowerCase().endsWith(".xlsx") || files[0].size > 5 * 1024 * 1024) {
+            setErrors(["Pilih satu file .xlsx dengan ukuran maksimal 5 MB."]);
+            setFile(null);
+            return;
+        }
+        setErrors([]);
+        setFile(files[0]);
+    }
     const [file, setFile] = useState<File | null>(null);
     const [errors, setErrors] = useState<string[]>([]);
     const [busy, setBusy] = useState(false);
@@ -76,25 +89,19 @@ export default function ImportsPage({
                     </p>
                     <ErrorAlert messages={errors} />
                     <form onSubmit={submit}>
-                        <label className="upload-zone" htmlFor="workbook">
-                            <span className="empty-icon">
-                                <Icon name="upload" />
-                            </span>
-                            <strong>
-                                {file?.name ?? "Pilih workbook workload"}
-                            </strong>
-                            <span>.xlsx · maksimal 5 MB · sheet Workload</span>
-                            <input
-                                id="workbook"
-                                type="file"
-                                accept=".xlsx"
-                                disabled={busy}
-                                required
-                                onChange={(e) =>
-                                    setFile(e.target.files?.[0] ?? null)
-                                }
-                            />
-                        </label>
+                        <div
+                            className={`upload-zone ${dragging ? "is-dragging" : ""} ${file ? "has-file" : ""}`}
+                            onDragOver={(e) => { e.preventDefault(); if (!busy) setDragging(true); }}
+                            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false); }}
+                            onDrop={(e) => { e.preventDefault(); choose(Array.from(e.dataTransfer.files)); }}
+                            aria-busy={busy}
+                        >
+                            <span className="empty-icon"><Icon name={file ? "check" : "upload"} /></span>
+                            <strong>{dragging ? "Lepaskan workbook di sini" : file?.name ?? "Tarik workbook Excel ke sini"}</strong>
+                            <span>{file ? `${(file.size / 1024).toFixed(1)} KB · Siap divalidasi` : ".xlsx · maksimal 5 MB · sheet Workload"}</span>
+                            <button type="button" disabled={busy} onClick={() => inputRef.current?.click()}>{file ? "Ganti file" : "Pilih file dari komputer"}</button>
+                            <input ref={inputRef} tabIndex={-1} className="visually-hidden" aria-label="Workbook workload" id="workbook" type="file" accept=".xlsx" disabled={busy} onChange={(e) => { choose(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
+                        </div>
                         <button className="primary" disabled={busy || !file}>
                             {busy
                                 ? "Memvalidasi dan mengimpor…"

@@ -73,7 +73,6 @@ export default function WorkspaceLayout({
                 <WorkspaceHeader
                     title={currentPage.title}
                     isOverview={currentPath === "/"}
-                    showImport={currentPath === "/imports"}
                     user={user}
                 />
                 <main className="content">
@@ -131,10 +130,6 @@ export default function WorkspaceLayout({
                             />
                         </Routes>
                     )}
-                    <footer>
-                        Data workload adalah cuplikan pekerjaan. Estimasi waktu
-                        bukan keputusan pengurangan karyawan.
-                    </footer>
                 </main>
             </div>
             {logoutPhase && (

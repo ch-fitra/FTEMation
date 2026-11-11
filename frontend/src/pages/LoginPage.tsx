@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import BrandLogo from "../components/BrandLogo";
@@ -22,11 +22,6 @@ export default function LoginPage({
     const [authenticatedUser, setAuthenticatedUser] = useState<User | null>(
         null,
     );
-    useEffect(() => {
-        if (phase !== "success" || !authenticatedUser) return;
-        const timer = window.setTimeout(() => onLogin(authenticatedUser), 1100);
-        return () => window.clearTimeout(timer);
-    }, [phase, authenticatedUser, onLogin]);
     async function submit(e: FormEvent) {
         e.preventDefault();
         if (busy || phase) return;
@@ -94,6 +89,7 @@ export default function LoginPage({
                         <label htmlFor="username">Username</label>
                         <input
                             id="username"
+                            placeholder="Masukkan username"
                             disabled={busy || phase === "success"}
                             type="text"
                             autoComplete="username"
@@ -108,6 +104,7 @@ export default function LoginPage({
                         <div className="password-field">
                             <input
                                 id="password"
+                                placeholder="Masukkan password"
                                 disabled={busy || phase === "success"}
                                 type={showPassword ? "text" : "password"}
                                 autoComplete="current-password"

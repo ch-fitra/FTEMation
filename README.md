@@ -32,7 +32,7 @@ php artisan ftemation:check-database
 composer dev
 ```
 
-Buka **http://localhost:8000/**. Build React disajikan oleh Laravel. Akun demo lokal: username `akun demo`, password `admin123`. Konfigurasi awal akun ada pada `DEMO_USERNAME`, `DEMO_NAME`, `DEMO_EMAIL`, `DEMO_PASSWORD` di `.env`. Seeder tidak mengganti password akun yang sudah ada.
+Buka **http://localhost:8000/**. Build React disajikan oleh Laravel. Akun demo lokal: username `akun demo`, password `admin123`. Konfigurasi awal akun ada pada `DEMO_USERNAME`, `DEMO_NAME`, `DEMO_EMAIL`, `DEMO_PASSWORD` di `.env`. Seeder tidak mengganti password akun yang sudah ada. Sesuai permintaan pemilik, kolom `users.password` menyimpan password sebagai teks biasa dan dapat diedit langsung di database. Password tetap disembunyikan dari respons API. Hash lama dikonversi menjadi teks password setelah login berhasil; hash tidak bisa didekripsi. Penyimpanan ini membuat password terbaca oleh siapa pun yang memiliki akses database dan tidak cocok untuk penggunaan production.
 
 Untuk mengembangkan frontend, jalankan terminal kedua:
 
@@ -164,7 +164,7 @@ npm --prefix frontend run lint
 node scripts/smoke-http.mjs
 ```
 
-PHPUnit dipaksa SQLite in-memory melalui `phpunit.xml`; provider AI memakai fakes. Smoke HTTP membutuhkan server lokal dan akun demo dari env; tanpa `--import` tidak menambahkan dataset atau inference. `scripts/review-audit-fixes.mjs` adalah tes browser tambahan yang membutuhkan Playwright/Chrome pada environment review, bukan dependency runtime aplikasi.
+PHPUnit dipaksa SQLite in-memory melalui `phpunit.xml`; provider AI memakai fakes. Smoke HTTP membutuhkan server lokal dan akun demo dari env; tanpa `--import` tidak menambahkan dataset atau inference. `scripts/review-audit-fixes.mjs` adalah tes browser tambahan yang membutuhkan Playwright/Chrome pada environment review, bukan dependency runtime aplikasi. `node scripts/review-ui-revisions.mjs` memeriksa dropdown mouse/keyboard, drag-and-drop dan validasi file tanpa mengirim import, riwayat analisis, layout responsif, serta logout otomatis. Kedua skrip membutuhkan server lokal dan akun demo dari env; tidak menjalankan inference AI.
 
 ## Production dan keamanan
 
@@ -175,3 +175,29 @@ Ganti password demo sebelum publikasi dan gunakan user database terbatas, bukan 
 Jalankan worker melalui process manager; restart setelah deploy. Pastikan storage dan bootstrap/cache writable, monitor failed jobs/heartbeat, rotasi log dan kapasitas disk. Setelah env siap, gunakan config/view cache. Hosting target, MySQL 8, HTTPS aktual dan pemulihan proses OS perlu diuji pada lingkungan deployment.
 
 Dokumen assessment, laporan historis, artefak review dan paket pengumpulan telah dipindahkan ke `../FTEMation-Archive-2026-11-11/`. Berkas tersebut tidak diperlukan untuk menjalankan aplikasi.
+
+## Penyempurnaan kualitas AI dan laporan
+
+Run baru memakai `activity-v2` dan `summary-v2`. Prompt v1 tetap tersedia; retry run lama tetap memakai snapshot prompt aslinya. Fingerprint memuat isi kedua prompt sehingga cache v1 tidak digunakan sebagai jawaban v2. Restart worker setelah perubahan kode/config; jangan mulai inference baru tanpa otorisasi biaya API.
+
+Prompt v2 melarang klaim dokumen, sistem, integrasi, SOP, threshold dan toleransi yang belum dibuktikan input. Rekomendasi dimulai dari data tersedia; solusi tambahan dinyatakan sebagai opsi bersyarat. Invoice dan PO mendukung usulan two-way matching; three-way matching memerlukan konfirmasi data penerimaan barang. Ringkasan karyawan/departemen mengikuti batas bukti yang sama. JSON valid tidak membuktikan reasoning benar atau semua halusinasi terdeteksi.
+
+Halaman Analisis menampilkan kandidat review untuk grup dengan level berbeda, beserta alasan masing-masing aktivitas. Perbedaan dapat valid karena langkah, exception, judgment dan risiko; kategori sama tidak memaksa label identik. Lima pasangan sintetis diuji offline dengan fake provider sebagai kontrak/rubrik referensi, bukan pengukuran akurasi model atau ground truth ahli domain.
+
+Human oversight dijelaskan sebagai persetujuan rutin setiap transaksi, review pengecualian, dan kewenangan keputusan final manusia. Boolean historis tetap utuh: `false` bukan jaminan proses tanpa manusia. Lihat rekomendasi/catatan untuk kondisi exception dan konfirmasi penanggung jawab dengan pemilik proses. Risiko/judgment tinggi dan kategori keputusan berdampak tinggi tetap wajib kontrol manusia.
+
+Dashboard memberi catatan informatif ketika aktivitas individu melebihi satu FTE, dan kartu karyawan menjelaskan perlunya verifikasi periode, pembagian pekerjaan serta durasi aktual. FTE tidak dibatasi satu dan tidak menjadi penilaian kinerja atau keputusan headcount.
+
+Overview Excel menampilkan metadata run, KPI kapasitas waktu, distribusi level dan panduan interpretasi dalam bagian terpisah. Seluruh enam sheet dipertahankan; Activities tetap berisi data pemeriksaan. Angka memakai snapshot run dan pembulatan enam desimal. Teks pengguna ditulis sebagai literal, termasuk metadata. Export baru dapat memakai presentasi terbaru dengan hasil AI historis tetap sama; berkas export lama tidak ditimpa oleh pemeriksaan.
+
+Panduan: [metodologi](docs/METHODOLOGY.md), [evaluasi AI](docs/AI_VERIFICATION.md), dan [laporan penyempurnaan](docs/AI_QUALITY_REFINEMENT_REPORT.md).
+
+Pemeriksaan tambahan tanpa inference:
+
+```powershell
+php scripts/verify-analysis-history.php
+php scripts/review-quality-exports.php 4
+node scripts/review-ai-quality.mjs
+```
+
+Skrip pertama hanya membaca tabel domain dan menghitung hash; tidak mencetak kredensial atau isi data pribadi. Skrip kedua membaca completed run, memeriksa perhitungan dan kesetaraan Excel/JSON, lalu menulis preview ke `storage/framework/testing/quality/`, bukan folder export historis. Skrip browser memerlukan Playwright pada folder sementara `ftemation-ui-review` dan Chrome; memeriksa Run #4 secara read-only serta memblokir mutasi selain login/logout.

@@ -1,3 +1,4 @@
+import Select from "../components/Select";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import ErrorAlert from "../components/ErrorAlert";
@@ -167,8 +168,7 @@ export default function AnalysisPage({
                     <span className="eyebrow">AUTOMATION INTELLIGENCE</span>
                     <h2>Peluang yang dapat ditindaklanjuti</h2>
                     <p>
-                        Penilaian AI dengan perhitungan FTE dan prioritas dari
-                        Laravel.
+                        Temukan aktivitas yang berpotensi diotomatisasi, tinjau rekomendasinya, lalu tentukan langkah berikutnya.
                     </p>
                 </div>
                 <button
@@ -183,11 +183,16 @@ export default function AnalysisPage({
                           : "Mulai analisis"}
                 </button>
             </section>
+            <ol className="analysis-steps" aria-label="Alur analisis">
+                <li><span>1</span><div><strong>Analisis dataset</strong><small>AI menilai peluang setiap aktivitas.</small></div></li>
+                <li><span>2</span><div><strong>Tinjau prioritas</strong><small>Bandingkan saving, risiko, dan rekomendasi.</small></div></li>
+                <li><span>3</span><div><strong>Rencanakan implementasi</strong><small>Validasi dengan pemilik proses, lalu unduh hasil.</small></div></li>
+            </ol>
             <ErrorAlert messages={errors} />
             {history.length > 0 && (
                 <label className="analysis-history">
                     Riwayat analisis
-                    <select
+                    <Select
                         value={runId ?? ""}
                         onChange={(e) => {
                             setRun(null);
@@ -196,11 +201,11 @@ export default function AnalysisPage({
                     >
                         {history.map((r) => (
                             <option key={r.id} value={r.id}>
-                                Analisis #{r.id} ·{" "}
+                                Analisis {r.id} ·{" "}
                                 {statusLabel[r.status] ?? r.status}
                             </option>
                         ))}
-                    </select>
+                    </Select>
                 </label>
             )}
             {!run && (
@@ -214,16 +219,12 @@ export default function AnalysisPage({
                 <section className="panel analysis-status" aria-live="polite">
                     <div>
                         <strong>{statusLabel[run.status] ?? run.status}</strong>
-                        <p>
-                            {run.progress.success ?? 0} / {run.total} aktivitas
-                            berhasil · {run.cache_hits} dari cache · Kesimpulan:{" "}
-                            {run.summary_status}
-                        </p>
-                        <small>
-                            {run.actual_model ?? run.model_name} ·{" "}
-                            {run.requests_count} request ·{" "}
-                            {run.input_tokens + run.output_tokens} token
-                        </small>
+                        <p>{run.progress.success ?? 0} dari {run.total} aktivitas berhasil dianalisis.</p>
+                        <progress aria-label="Kemajuan analisis aktivitas" max={Math.max(1, run.total)} value={run.progress.success ?? 0} />
+                        <p className="muted">{run.status === "completed" ? "Hasil siap ditinjau dan diunduh." : active ? "Hasil lengkap akan tersedia setelah seluruh aktivitas dan kesimpulan selesai." : "Tinjau kendala di bawah, lalu coba kembali aktivitas yang gagal."}</p>
+                        <details className="analysis-technical"><summary>Detail proses analisis</summary>
+                            <p>{run.actual_model ?? run.model_name} · {run.requests_count} request · {run.input_tokens + run.output_tokens} token · {run.cache_hits} dari cache · Status kesimpulan: {statusLabel[run.summary_status] ?? run.summary_status}</p>
+                        </details>
                     </div>
                     {active && (
                         <span
@@ -259,8 +260,7 @@ export default function AnalysisPage({
                     {active && (
                         <small>
                             Proses berjalan di server. Anda boleh berpindah
-                            halaman. Jika antrean tidak bergerak, pastikan
-                            worker queue analysis dijalankan.
+                            halaman dan kembali untuk melihat perkembangannya.
                         </small>
                     )}
                 </section>
@@ -290,13 +290,13 @@ export default function AnalysisPage({
                             icon="activities"
                         />
                         <MetricCard
-                            label="Human oversight"
+                            label="Kontrol manusia wajib"
                             value={String(report.totals.oversight_count)}
-                            detail="Aktivitas memerlukan pengawasan"
+                            detail="Menurut label AI; lihat catatan kontrol"
                             icon="users"
                         />
                     </div>
-                    <section className="panel">
+                    <section className="panel analysis-results">
                         <div className="panel-heading">
                             <div>
                                 <h2>Hasil analisis</h2>
@@ -318,6 +318,24 @@ export default function AnalysisPage({
                                 ))}
                             </div>
                         </div>
+                        <div className="analysis-reading-guide">
+                            <strong>Cara membaca hasil</strong>
+                            <p>Mulai dari prioritas tertinggi. Saving adalah estimasi kapasitas waktu dalam FTE; skor prioritas mempertimbangkan saving, risiko, dan kesulitan implementasi.</p>
+                            <span>High: mayoritas langkah · Medium: sebagian langkah · Low: bantuan terbatas. Keputusan dan pengawasan tetap pada manusia.</span>
+                            <p>Persetujuan rutin berarti manusia menyetujui setiap transaksi. Review pengecualian berlaku untuk kasus di luar kriteria. Keputusan final berisiko tetap pada manusia berwenang. Label AI tidak merinci seluruh jenis kontrol; konfirmasi peran dan pemicu bersama pemilik proses.</p>
+                        </div>
+                        {!!run?.consistency_review?.length && (
+                            <details className="analysis-reading-guide">
+                                <summary>Review konsistensi: {run.consistency_review.length} kelompok dengan level berbeda</summary>
+                                <p>Kandidat review, bukan bukti inkonsistensi. Kategori yang sama tidak menjamin proses identik; bandingkan langkah, exception, judgment, dan risiko bersama pemilik proses.</p>
+                                {run.consistency_review.map((group) => (
+                                    <details key={group.group_id}>
+                                        <summary>{group.group_id}</summary>
+                                        {group.activities.map((a) => <p key={a.activity_id}><b>{a.activity_id} · {a.department} · {a.automation_level}</b>: {a.reason}</p>)}
+                                    </details>
+                                ))}
+                            </details>
+                        )}
                         <div className="analysis-distribution">
                             {Object.entries(report.totals.levels).map(
                                 ([l, n]) => (
@@ -338,7 +356,7 @@ export default function AnalysisPage({
                             {[
                                 ["priorities", "Prioritas"],
                                 ["activities", "Seluruh aktivitas"],
-                                ["groups", "Grouping"],
+                                ["groups", "Kelompok aktivitas"],
                                 ["employees", "Karyawan"],
                                 ["departments", "Departemen"],
                             ].map(([key, title]) => (
@@ -366,7 +384,7 @@ export default function AnalysisPage({
                                     </label>
                                     <label>
                                         Peluang otomatisasi
-                                        <select
+                                        <Select
                                             aria-label="Peluang otomatisasi"
                                             value={level}
                                             onChange={(e) =>
@@ -381,9 +399,10 @@ export default function AnalysisPage({
                                                     <option key={l}>{l}</option>
                                                 ),
                                             )}
-                                        </select>
+                                        </Select>
                                     </label>
                                 </div>
+                                <p className="analysis-result-count" role="status">{activities.length} aktivitas ditampilkan · {tab === "priorities" ? "Diurutkan berdasarkan skor prioritas tertinggi" : "Seluruh aktivitas dalam hasil analisis"}</p>
                                 <div className="table-scroll">
                                     <table>
                                         <thead>
@@ -455,12 +474,11 @@ export default function AnalysisPage({
                                                                 {a.effort_level}
                                                             </p>
                                                             <p>
-                                                                Pengawasan
-                                                                manusia:{" "}
+                                                                Kontrol manusia menurut label AI:{" "}
                                                                 {a.oversight_required
-                                                                    ? "Ya"
-                                                                    : "Tidak"}
-                                                                .{" "}
+                                                                    ? "Diwajibkan. Lihat catatan untuk persetujuan rutin, review pengecualian, atau keputusan final."
+                                                                    : "Tidak diwajibkan oleh label; bukan jaminan tanpa manusia. Review pengecualian tetap mengikuti rekomendasi. Konfirmasi pemicu dan penanggung jawab dengan pemilik proses."}
+                                                                {" "}
                                                                 {
                                                                     a.oversight_note
                                                                 }
@@ -543,6 +561,9 @@ export default function AnalysisPage({
                                             {formatFte(e.estimated_fte_saving)}
                                         </p>
                                         <p>{e.summary}</p>
+                                        {e.employee_id && e.total_fte > 1 && (
+                                            <p className="analysis-reading-guide">Beban aktivitas tercatat melebihi satu FTE berdasarkan asumsi volume, durasi, dan kapasitas tahunan. Verifikasi periode pencatatan, pembagian pekerjaan, dan durasi aktual sebelum menarik kesimpulan.</p>
+                                        )}
                                         <h4>Peluang</h4>
                                         <p>{e.opportunities}</p>
                                         <h4>Pengawasan</h4>

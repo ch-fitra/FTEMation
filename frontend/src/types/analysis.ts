@@ -71,6 +71,11 @@ export interface AnalysisRun {
     output_tokens: number;
     error_message: string | null;
     can_retry: boolean;
+    consistency_review?: {
+        group_id: string;
+        message: string;
+        activities: Pick<AnalysisActivity, "activity_id" | "activity_name" | "department" | "automation_level" | "reason">[];
+    }[];
     failures: { activity_id: string; message: string }[];
     report?: Report;
 }

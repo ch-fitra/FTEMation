@@ -35,7 +35,8 @@ status(login, 200, 'demo login via session cookie')
 assert(!('password' in login.data.user) && !('token' in login.data)); checks++
 status(await request('/api/user'), 200, 'authenticated session recognized')
 const history = await request('/api/imports'); status(history, 200, 'private import history')
-let id = history.data.data.find(i => i.status === 'imported')?.id
+// This acceptance section checks the reference fixture, even when a larger dataset is newer.
+let id = history.data.data.find(i => i.status === 'imported' && i.activities_count === 60 && i.employees_count === 12)?.id
 if (process.argv.includes('--import')) {
   const body = new FormData()
   body.append('file', new Blob([await readFile(new URL('../samples/FTEMation_Workload_Dataset_v1.xlsx', import.meta.url))], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'FTEMation_Workload_Dataset_v1.xlsx')

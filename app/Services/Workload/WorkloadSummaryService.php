@@ -4,6 +4,7 @@ namespace App\Services\Workload;
 
 use App\Models\WorkloadImport;
 use App\Services\Analysis\AnalysisReportService;
+use App\Services\Analysis\ReportGuidance;
 
 class WorkloadSummaryService
 {
@@ -32,6 +33,12 @@ class WorkloadSummaryService
             $departments = collect($report['departments']);
         }
 
+        $warnings = $import->warnings ?? [];
+        $aboveCapacity = $activities->groupBy('employee_id')->filter(fn ($rows) => $rows->sum(fn ($a) => $calculator->calculate((float) $a->volume, (float) $a->duration_minutes, $a->frequency, $calculation)) > 1)->count();
+        if ($aboveCapacity > 0) {
+            $warnings[] = $aboveCapacity.' karyawan memiliki aktivitas tercatat di atas satu FTE. '.ReportGuidance::WORKLOAD;
+        }
+
         return [
             'activities_count' => $activities->count(),
             'employees_count' => $import->employees()->count(),
@@ -44,7 +51,7 @@ class WorkloadSummaryService
             'remaining_fte' => $report['totals']['remaining_fte'] ?? null,
             'automation_levels' => $report['totals']['levels'] ?? null,
             'calculation' => $calculation,
-            'warnings' => $import->warnings ?? [],
+            'warnings' => $warnings,
         ];
     }
 }
