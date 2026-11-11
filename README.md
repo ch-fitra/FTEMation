@@ -2,7 +2,7 @@
 
 AI-Powered Workload & Automation Intelligence. Laravel 13 REST API di root dan React + TypeScript di `frontend/`, dengan CSS biasa.
 
-Fase 1 sudah mencakup foundation, autentikasi session/CSRF, import Excel, FTE, dan dashboard workload dasar. Integrasi DeepSeek, grouping hasil AI, insight, dan export adalah pekerjaan fase berikutnya. Aplikasi tidak menyajikan penilaian AI atau saving yang dibuat-buat.
+Tersedia autentikasi session/CSRF, import Excel, kalkulator FTE, analisis DeepSeek, grouping lintas departemen, kesimpulan karyawan/departemen, prioritas otomatisasi, dan export PDF/Excel/results.json. Analisis riil dataset referensi telah dijalankan; hasil dan batas pengujiannya ada di [laporan Fase 2](docs/PHASE_2_REPORT.md).
 
 ## Mulai membaca kode
 
@@ -34,10 +34,10 @@ Buka **http://localhost:8000/**. Build React disajikan Laravel pada origin yang 
 
 Akun demo lokal:
 
-- Email: `demo@ftemation.local`
-- Password: `FTE-Demo-2026!`
+- Username: `akun demo`
+- Password: `admin123`
 
-Nilai akun berasal dari `DEMO_EMAIL` dan `DEMO_PASSWORD` di `.env`. Seeder tidak mengganti password akun yang sudah ada. Spesifikasi berada di `docs/`, studi kasus di `references/`, dan workbook di `samples/`; salinan starter kit sudah dibersihkan.
+Nama profil adalah `Demo`. Username, nama, dan password awal berasal dari `DEMO_USERNAME`, `DEMO_NAME`, serta `DEMO_PASSWORD` di `.env`. `DEMO_EMAIL` hanya menjadi identitas internal untuk memperbarui akun yang sama dan mempertahankan riwayat import; email tidak dipakai pada form/API login. Seeder menyelaraskan nama/username tanpa mengganti password akun yang sudah ada. Akun lokal sudah diperbarui dengan password di atas. Spesifikasi berada di `docs/`, studi kasus di `references/`, dan workbook di `samples/`.
 
 ## Instalasi pada mesin baru
 
@@ -48,7 +48,7 @@ composer install
 if (-not (Test-Path -LiteralPath .env)) { Copy-Item -LiteralPath .env.example -Destination .env }
 ```
 
-Edit `.env`: isi koneksi untuk **database `ftemation` yang sudah ada**, password MySQL jika diperlukan, dan `DEMO_PASSWORD` minimal 12 karakter. `.env.example` tidak memuat rahasia. Konfigurasi lokal default memakai `DB_CONNECTION=mysql`, host `127.0.0.1`, port `3306`, user `root`, dan `utf8mb4_unicode_ci`.
+Edit `.env`: isi koneksi untuk **database `ftemation` yang sudah ada**, password MySQL jika diperlukan, `DEMO_USERNAME="akun demo"`, dan `DEMO_PASSWORD` minimal 8 karakter. `.env.example` tidak memuat rahasia. Konfigurasi lokal default memakai `DB_CONNECTION=mysql`, host `127.0.0.1`, port `3306`, user `root`, dan `utf8mb4_unicode_ci`.
 
 ```powershell
 php artisan key:generate
@@ -103,7 +103,7 @@ saving_rate: high=60%, medium=30%, low=10%
 priority = 100 × (saving / maxSavingRun) × riskFactor × effortFactor
 ```
 
-Risk low/medium/high: 1/0,7/0,4. Effort low/medium/high: 1/0,75/0,5. Jika maxSavingRun=0, skor prioritas=0. Parameter ada di `config/ftemation.php`. Kalkulator saving dan prioritas sudah diuji, tetapi belum dipakai untuk menampilkan hasil AI pada Fase 1.
+Risk low/medium/high: 1/0,7/0,4. Effort low/medium/high: 1/0,75/0,5. Jika maxSavingRun=0, skor prioritas=0. Parameter ada di `config/ftemation.php` dan disalin ke snapshot tiap run. Laravel menghitung saving dan prioritas setelah hasil AI lolos validasi.
 
 Laravel menghitung dan menyimpan FTE dengan 12 desimal. Ringkasan dihitung dari input tersimpan sebelum pembulatan tampilan, bukan penjumlahan FTE empat desimal dari UI. Dataset referensi diperiksa melalui tes, bukan nilai hasil yang di-hardcode:
 
@@ -116,7 +116,7 @@ Aktivitas tercatat hanya cuplikan pekerjaan. Saving adalah estimasi kapasitas wa
 ## API dan arsitektur
 
 - `GET /sanctum/csrf-cookie`: inisialisasi CSRF.
-- `POST /api/login`: email/password, session cookie; dibatasi 5 percobaan/menit per kombinasi email/IP.
+- `POST /api/login`: username/password, session cookie; dibatasi 5 percobaan/menit per kombinasi username/IP. Username boleh mengandung spasi, maksimal 100 karakter.
 - `GET /api/user`, `POST /api/logout`: identitas dan invalidasi sesi.
 - `GET /api/imports`, `POST /api/imports`: riwayat dan multipart `file`.
 - `GET /api/imports/{id}`: ringkasan serta error import.
@@ -170,4 +170,48 @@ Hasil pengujian, keterbatasan, dan inventaris file: [docs/PHASE_1_REPORT.md](doc
 
 Lingkungan yang diuji menyediakan MariaDB 10.4.32 melalui koneksi Laravel mysql. MySQL 8 sesuai keputusan teknis belum diuji pada server terpisah. PHP 8.4 CLI saat ini berasal dari runtime proyek lain yang sudah tersedia; implementasi tidak mengubah runtime tersebut.
 
-Fase berikutnya: validasi akses riil ke DeepSeek `deepseek-flash` non-thinking, prompt/rubrik versioned dalam file, JSON validation dan oversight, database queue/retry/cache, lalu grouping dan kesimpulan per karyawan/departemen, dashboard hasil serta prioritas, dan export DomPDF/Excel/results.json. Konfigurasi DeepSeek sudah disiapkan di `.env.example`, tetapi belum ada request AI atau hasil inference. Export final harus menunggu run lengkap dengan seluruh aktivitas success dan summary lengkap. What-If dan Flutter tetap ditunda.
+## Menjalankan analisis AI
+
+Isi `DEEPSEEK_API_KEY`, gunakan `DEEPSEEK_MODEL=deepseek-flash`, lalu jalankan migration dan worker pada terminal terpisah:
+
+```powershell
+php artisan config:clear
+php artisan migrate
+php artisan queue:work database --queue=analysis --timeout=360 --tries=1
+```
+
+Buka **Analisis AI** (`/analysis`), klik **Mulai analisis**. Status diperbarui otomatis; halaman boleh ditutup sementara worker berjalan. Request sungguhan mengirim nama/deskripsi aktivitas dan konteks departemen ke DeepSeek. Label jawaban dalam workbook evaluasi tidak dikirim. Kesimpulan menerima agregat Laravel dan rekomendasi prioritas, termasuk nama karyawan. Gunakan dataset yang diizinkan untuk dikirim ke penyedia AI.
+
+Alternatif terminal untuk pengelola lokal:
+
+```powershell
+php artisan workload:analyze 1
+# Setelah worker menyelesaikan run, gunakan ID run yang ditampilkan:
+php artisan workload:export 1
+```
+
+Export CLI disimpan di `storage/app/private/exports/run-{id}/`; tombol pada halaman menghasilkan download dari run yang sama. Final export ditolak jika satu aktivitas atau kesimpulan belum sukses. JSON/Excel/PDF menampilkan hingga enam desimal; agregasi internal dihitung sebelum pembulatan.
+
+Windows PHP yang belum memiliki CA bundle dapat memakai bundle Mozilla dari curl:
+
+```powershell
+New-Item -ItemType Directory -Force storage/app/private/certs
+curl.exe --fail --silent --show-error https://curl.se/ca/cacert.pem -o storage/app/private/certs/cacert.pem
+```
+
+Set `DEEPSEEK_CA_BUNDLE=storage/app/private/certs/cacert.pem` di `.env`, lalu `php artisan config:clear` dan restart worker. Jika PHP sudah memiliki CA tepercaya, biarkan variabel ini kosong. Jangan menonaktifkan verifikasi TLS.
+
+API tambahan (Sanctum + pemilik dataset):
+
+- `GET/POST /api/imports/{id}/analyses`: riwayat / mulai run; start mengembalikan run aktif bila sudah ada.
+- `GET /api/analyses/{id}`: progres, kegagalan, cache/token usage, hasil lengkap.
+- `POST /api/analyses/{id}/retry`: ulangi aktivitas gagal atau kesimpulan gagal. Run aktif yang heartbeat-nya berhenti sepuluh menit juga dapat dipulihkan.
+- `GET /api/analyses/{id}/export/{json|xlsx|pdf}`: download hasil lengkap.
+
+Worker memproses batch lima aktivitas dengan lock database per run. Maksimal tiga percobaan HTTP per batch, jeda bertambah, timeout paling lama sembilan puluh detik/request. Error key/saldo/konfigurasi menghentikan run; error sementara dapat dicoba kembali lewat UI. `DB_QUEUE_RETRY_AFTER` harus lebih besar daripada timeout worker; default 420 detik. Windows tidak menyediakan semua mekanisme sinyal PCNTL; timeout HTTP tetap membatasi request dan heartbeat mendukung pemulihan manual.
+
+Cache privat per pemilik selama tiga puluh hari memuat fingerprint model, endpoint, prompt/rubrik, taksonomi, dan konten aktivitas. Cache aktivitas dapat dipakai ulang ketika hanya asumsi saving berubah: angka tetap dihitung ulang dari snapshot run baru. Kesimpulan di-cache berdasarkan agregat dan prioritas sehingga diperbarui ketika angka berubah. Run dari cache dapat memiliki nol request/token dan `actual_model=null` karena tidak melakukan inference baru.
+
+Prompt di `resources/prompts/`, orkestrasi/validator/provider/report/export di `app/Services/Analysis/`, job di `app/Jobs/`, dan halaman di `frontend/src/pages/AnalysisPage.tsx`. Jangan memasukkan kredensial ke prompt atau snapshot. Status lengkap tidak membuktikan penilaian AI selalu benar; pengguna tetap meninjau alasan, risiko, dan oversight.
+
+Pekerjaan pengumpulan berikutnya: review hasil dengan penilai domain, uji pada MySQL 8 serta hosting target, rekam demo bersuara 8–10 menit, dan siapkan ZIP tanpa rahasia. What-If dan Flutter tetap ditunda.

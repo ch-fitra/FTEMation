@@ -70,8 +70,8 @@ async function reviewViewport(context, name, sessionState) {
             await page.reload({ waitUntil: "networkidle" });
         } else {
         await page
-            .getByLabel("Email", { exact: true })
-            .fill(setting("DEMO_EMAIL"));
+            .getByLabel("Username", { exact: true })
+            .fill(setting("DEMO_USERNAME"));
         await page
             .getByLabel("Password", { exact: true })
             .fill(setting("DEMO_PASSWORD"));

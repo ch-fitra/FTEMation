@@ -6,19 +6,20 @@ use InvalidArgumentException;
 
 class FteCalculator
 {
-    public function calculate(float $volume, float $durationMinutes, string $frequency): float
+    public function calculate(float $volume, float $durationMinutes, string $frequency, ?array $assumptions = null): float
     {
-        $factor = config("ftemation.annual_factors.$frequency");
+        $assumptions ??= config('ftemation');
+        $factor = $assumptions['annual_factors'][$frequency] ?? null;
         if (! is_finite($volume) || ! is_finite($durationMinutes) || $volume <= 0 || $durationMinutes <= 0 || $factor === null) {
             throw new InvalidArgumentException('Volume/durasi harus positif dan frekuensi harus daily, weekly, atau monthly.');
         }
 
-        return $volume * $durationMinutes * $factor / config('ftemation.annual_capacity_minutes');
+        return $volume * $durationMinutes * $factor / $assumptions['annual_capacity_minutes'];
     }
 
-    public function saving(float $fte, string $level): float
+    public function saving(float $fte, string $level, ?array $assumptions = null): float
     {
-        $rate = config("ftemation.saving_rates.$level");
+        $rate = ($assumptions ?? config('ftemation'))['saving_rates'][$level] ?? null;
         if ($fte < 0 || ! is_finite($fte) || $rate === null) {
             throw new InvalidArgumentException('FTE atau level otomatisasi tidak valid.');
         }
@@ -26,10 +27,11 @@ class FteCalculator
         return $fte * $rate;
     }
 
-    public function priority(float $saving, float $maxSaving, string $risk, string $effort): float
+    public function priority(float $saving, float $maxSaving, string $risk, string $effort, ?array $assumptions = null): float
     {
-        $riskFactor = config("ftemation.risk_factors.$risk");
-        $effortFactor = config("ftemation.effort_factors.$effort");
+        $assumptions ??= config('ftemation');
+        $riskFactor = $assumptions['risk_factors'][$risk] ?? null;
+        $effortFactor = $assumptions['effort_factors'][$effort] ?? null;
         if (! is_finite($saving) || ! is_finite($maxSaving) || $saving < 0 || $maxSaving < $saving || $riskFactor === null || $effortFactor === null) {
             throw new InvalidArgumentException('Parameter prioritas tidak valid.');
         }

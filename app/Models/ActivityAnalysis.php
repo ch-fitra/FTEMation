@@ -7,11 +7,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ActivityAnalysis extends Model
 {
-    protected $fillable = ['analysis_run_id', 'activity_id', 'activity_group_id', 'automation_level', 'reason', 'recommendation', 'factors', 'risk_level', 'effort_level', 'oversight_required', 'oversight_note', 'estimated_fte_saving', 'status', 'cache_key', 'error_message'];
+    protected $fillable = ['analysis_run_id', 'activity_id', 'activity_group_id', 'automation_level', 'reason', 'recommendation', 'factors', 'risk_level', 'effort_level', 'oversight_required', 'oversight_note', 'estimated_fte_saving', 'status', 'cache_key', 'error_message', 'automation_scope', 'priority_score', 'attempts', 'cache_hit'];
 
     protected function casts(): array
     {
-        return ['factors' => 'array', 'oversight_required' => 'boolean', 'estimated_fte_saving' => 'decimal:12'];
+        return ['factors' => 'array', 'oversight_required' => 'boolean', 'estimated_fte_saving' => 'decimal:12', 'cache_hit' => 'boolean', 'priority_score' => 'float'];
     }
 
     public function run(): BelongsTo

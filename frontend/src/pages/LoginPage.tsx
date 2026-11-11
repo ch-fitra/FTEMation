@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import BrandLogo from "../components/BrandLogo";
+import Icon from "../components/Icon";
 import SessionDialog from "../components/SessionDialog";
 import type { SessionPhase } from "../components/SessionDialog";
 import { api, errorMessages } from "../lib/http";
@@ -12,8 +13,9 @@ export default function LoginPage({
 }: {
     onLogin: (user: User) => void;
 }) {
-    const [email, setEmail] = useState("demo@ftemation.local");
+    const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
     const [errors, setErrors] = useState<string[]>([]);
     const [busy, setBusy] = useState(false);
     const [phase, setPhase] = useState<SessionPhase | null>(null);
@@ -33,7 +35,10 @@ export default function LoginPage({
         setErrors([]);
         try {
             await api.get("/sanctum/csrf-cookie");
-            const { data } = await api.post("/api/login", { email, password });
+            const { data } = await api.post("/api/login", {
+                username,
+                password,
+            });
             setAuthenticatedUser(data.user);
             setPhase("success");
         } catch (err) {
@@ -86,26 +91,48 @@ export default function LoginPage({
                         <h2>Masuk ke workspace</h2>
                     </div>
                     <form onSubmit={submit}>
-                        <label htmlFor="email">Email</label>
+                        <label htmlFor="username">Username</label>
                         <input
-                            id="email"
+                            id="username"
                             disabled={busy || phase === "success"}
-                            type="email"
+                            type="text"
                             autoComplete="username"
                             required
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            maxLength={100}
+                            autoCapitalize="none"
+                            spellCheck={false}
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
                         />
                         <label htmlFor="password">Password</label>
-                        <input
-                            id="password"
-                            disabled={busy || phase === "success"}
-                            type="password"
-                            autoComplete="current-password"
-                            required
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                        />
+                        <div className="password-field">
+                            <input
+                                id="password"
+                                disabled={busy || phase === "success"}
+                                type={showPassword ? "text" : "password"}
+                                autoComplete="current-password"
+                                required
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                            />
+                            <button
+                                type="button"
+                                className="password-toggle"
+                                aria-label={
+                                    showPassword
+                                        ? "Sembunyikan password"
+                                        : "Tampilkan password"
+                                }
+                                aria-pressed={showPassword}
+                                aria-controls="password"
+                                disabled={busy || phase === "success"}
+                                onClick={() =>
+                                    setShowPassword((value) => !value)
+                                }
+                            >
+                                <Icon name={showPassword ? "eyeOff" : "eye"} />
+                            </button>
+                        </div>
                         <button
                             className="primary full login-submit"
                             disabled={busy || phase !== null}

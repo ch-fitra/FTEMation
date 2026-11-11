@@ -1,28 +1,15 @@
-# FTEMation — Pekerjaan berikutnya
+# FTEMation — Status dan pekerjaan berikutnya
 
-Status tersedia: foundation, Sanctum session/CSRF, import Excel, kalkulator FTE, dan UI workload dasar. Fitur AI serta laporan final belum selesai.
+Foundation, authentication, import Excel, FTE, DeepSeek Engine, grouping, kesimpulan, prioritas, dashboard saving, serta export PDF/Excel/JSON telah diimplementasikan. Lihat [laporan Fase 2](PHASE_2_REPORT.md) untuk hasil inference dan pengujian yang benar-benar dijalankan.
 
-## 1. DeepSeek AI Engine
+## Verifikasi akhir assessment
 
-- Integrasikan `deepseek-flash` non-thinking melalui Laravel HTTP Client.
-- Simpan prompt/rubrik versioned di `resources/prompts/` saat implementasi dimulai.
-- Validasi JSON, enum, ID aktivitas, 20 kategori, lima faktor, dan human oversight; tolak output kosong/terpotong.
-- Gunakan database queue, timeout, retry/backoff terbatas, idempotency, cache fingerprint, token usage, serta status.
-- Buat API/UI run, progress, dan retry. Gunakan fakes pada tes; inference nyata memerlukan konfigurasi API valid.
+- Review perbedaan hasil AI dengan referensi evaluasi bersama penilai domain; jangan menimpa output provider dengan label jawaban.
+- Uji MySQL 8 dan hosting target; lingkungan lokal saat ini MariaDB XAMPP.
+- Uji beban serta pemulihan ketika worker dihentikan paksa pada lingkungan deployment.
+- ERD Mermaid dan PNG sudah diperbarui. Siapkan ZIP tanpa `.env`, dependency, log, cache, dan upload privat.
+- Rekam video demo bersuara 8–10 menit: login, import baru, FTE, analisis nyata, grouping lintas departemen, kesimpulan, prioritas, dan ketiga export.
+- Sertakan results.json yang dihasilkan aplikasi dari run lengkap dan README cara menjalankan queue.
+- Pengunggahan/publikasi dilakukan saat diminta pengguna.
 
-## 2. Insight dan export
-
-- Laravel menghitung agregat, saving, dan prioritas; AI menyusun penilaian kualitatif serta narasi.
-- Lengkapi ringkasan karyawan/departemen dan grouping lintas departemen.
-- Tambahkan dashboard hasil, detail alasan/rekomendasi/faktor/risiko/effort/oversight.
-- Export PDF/Excel/results.json hanya dari run lengkap dengan seluruh aktivitas success dan summary lengkap.
-- Uji konsistensi antarformat; jangan menghasilkan hasil AI palsu.
-
-## 3. QA dan pengumpulan
-
-- Cocokkan seluruh P0 dengan PRD dan studi kasus asli.
-- Uji migration bersih hanya pada database uji terisolasi. Jangan reset `ftemation` yang berisi data pengguna.
-- Verifikasi cache, retry, validasi AI, import workbook, build, dan alur browser.
-- Lengkapi panduan Windows, ERD, ZIP tanpa secrets/dependency terpasang, video 8–10 menit, serta folder pengumpulan.
-
-What-If, Flutter, dan fitur opsional menunggu seluruh P0 stabil. Lihat [PRD](PRD_v1.1.md) dan [panduan developer](DEVELOPMENT.md).
+What-If, Flutter, dan fitur opsional tetap ditunda sampai review seluruh fitur wajib selesai.

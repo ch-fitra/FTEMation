@@ -27,4 +27,10 @@ export const workspaceNavigation: NavigationItem[] = [
         title: "Data aktivitas",
         icon: "activities",
     },
+    {
+        path: "/analysis",
+        label: "Analisis AI",
+        title: "Analisis otomatisasi",
+        icon: "chart",
+    },
 ];

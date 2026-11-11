@@ -62,8 +62,16 @@ export default function OverviewPage({
                 />
                 <MetricCard
                     label="Potensi saving FTE"
-                    value="—"
-                    detail="Menunggu analisis AI"
+                    value={
+                        summary.estimated_fte_saving === null
+                            ? "—"
+                            : formatFte(summary.estimated_fte_saving)
+                    }
+                    detail={
+                        summary.analysis_run_id
+                            ? `Hasil analisis #${summary.analysis_run_id}`
+                            : "Menunggu analisis AI"
+                    }
                     icon="chart"
                 />
             </div>
@@ -115,20 +123,32 @@ export default function OverviewPage({
                     <div className="formula">
                         volume × menit × faktor tahunan
                         <hr />
-                        115.200 menit / FTE
+                        {summary.calculation.annual_capacity_minutes.toLocaleString(
+                            "id-ID",
+                        )}{" "}
+                        menit / FTE
                     </div>
                     <dl>
                         <div>
                             <dt>Daily</dt>
-                            <dd>240 kali / tahun</dd>
+                            <dd>
+                                {summary.calculation.annual_factors.daily} kali
+                                / tahun
+                            </dd>
                         </div>
                         <div>
                             <dt>Weekly</dt>
-                            <dd>48 kali / tahun</dd>
+                            <dd>
+                                {summary.calculation.annual_factors.weekly} kali
+                                / tahun
+                            </dd>
                         </div>
                         <div>
                             <dt>Monthly</dt>
-                            <dd>12 kali / tahun</dd>
+                            <dd>
+                                {summary.calculation.annual_factors.monthly}{" "}
+                                kali / tahun
+                            </dd>
                         </div>
                     </dl>
                     <Link to="/activities">Telusuri data aktivitas →</Link>
@@ -139,14 +159,20 @@ export default function OverviewPage({
                     <Icon name="info" />
                 </span>
                 <div>
-                    <strong>Penilaian otomatisasi belum tersedia</strong>
+                    <strong>
+                        {summary.analysis_run_id
+                            ? "Hasil otomatisasi siap ditinjau"
+                            : "Temukan peluang otomatisasi"}
+                    </strong>
                     <p>
                         Potensi penghematan akan ditampilkan setelah penilaian
                         aktivitas tersedia. Angka FTE di atas berasal dari data
                         workload yang tercatat.
                     </p>
                 </div>
-                <span className="subtle-tag">Belum dianalisis</span>
+                <Link className="button primary" to="/analysis">
+                    Analisis AI
+                </Link>
             </section>
         </>
     );

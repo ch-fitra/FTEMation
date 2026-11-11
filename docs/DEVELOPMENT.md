@@ -6,7 +6,7 @@
 2. [AGENTS.md](../AGENTS.md), [keputusan teknis](TECH_STACK_DECISIONS_v1.1.md), dan [PRD](PRD_v1.1.md): aturan serta acceptance criteria.
 3. Panduan ini: lokasi kode dan alur aplikasi. [Roadmap](ROADMAP.md): fitur yang belum selesai.
 
-Laravel berada di root, React di `frontend/`. Build React disajikan Laravel pada `/`, `/imports`, dan `/activities`; Vite development mem-proxy `/api` dan `/sanctum` ke Laravel.
+Laravel berada di root, React di `frontend/`. Build React disajikan Laravel pada `/`, `/imports`, `/activities`, dan `/analysis`; Vite development mem-proxy `/api` dan `/sanctum` ke Laravel.
 
 ## Struktur folder
 
@@ -83,6 +83,7 @@ Upload: ImportsPage → POST /api/imports → ImportWorkloadRequest → ImportCo
 - Logo: `frontend/src/assets/brand/ftemation-logo.webp` (492×328, 7.610 byte), digunakan melalui `components/BrandLogo.tsx`. Favicon simbol tanpa tulisan adalah `assets/brand/ftemation-mark.svg`; keduanya dibundel Vite. Gambar sumber di Downloads tidak diubah.
 - Isi halaman: `frontend/src/pages/`; komponen yang dipakai bersama: `components/`.
 - State sesi/dataset: `hooks/`; client API dan format: `lib/`; tipe respons: `types/`.
+- Autentikasi memakai `username` dan `password`. Kolom username ditambahkan oleh migration `2026_11_11_000002_add_username_to_users_table.php`, nullable/unik agar baris pengguna lama tetap valid. Seeder mengisi username akun demo pada baris email internal yang sama. Ini mengikuti perubahan kebutuhan pengguna setelah PRD awal yang masih menyebut login email.
 - Popup sesi: `components/SessionDialog.tsx`; alur masuk di `pages/LoginPage.tsx`, konfirmasi keluar di `layouts/WorkspaceLayout.tsx`.
 - CSS: `styles/index.css` memuat base → login → layout → workload → session-dialog → responsive.
 - Endpoint/validasi HTTP: `routes/`, `app/Http/Controllers/`, `app/Http/Requests/`.
@@ -100,7 +101,7 @@ File mirip berikut memiliki fungsi berbeda dan tetap diperlukan:
 - Studi kasus PDF/TXT dan ERD mmd/png: sumber asli, versi terbaca, serta gambar deliverable.
 - Workbook workload dan evaluasi AI: input dan referensi evaluasi.
 - group_taxonomy.json: data runtime seeder, agar seeder tidak perlu Python atau label jawaban evaluasi.
-- Model analisis serta DomPDF: schema/stack wajib fase selanjutnya.
+- Model analisis serta DomPDF: analisis dan export hasil lengkap.
 - Lock Composer/npm dan folder vendor/node_modules: dependency backend/frontend.
 - Konfigurasi Laravel serta placeholder storage: dibaca framework secara implisit.
 
@@ -122,3 +123,7 @@ node scripts/smoke-http.mjs
 PHPUnit memakai SQLite in-memory. Smoke HTTP memakai sesi nyata dan, tanpa --import, tidak menambah dataset. Jangan menjalankan migrate:fresh pada database lokal berisi data. Verifikasi visual browser perlu dilakukan terpisah dari build/lint/HTTP.
 
 Verifikasi setelah pemulihan Undo (11 November 2026): 36 tes/169 assertion lulus; build, lint, Pint, validasi Composer, koneksi database, dan 23 pemeriksaan smoke HTTP lulus. Audit menemukan 26 file frontend terjangkau tanpa import putus, tidak ada source duplikat byte-identik, dan seluruh tautan dokumentasi lokal valid. Fingerprint .env, referensi, workbook, serta upload tersimpan tidak berubah.
+
+## Analisis AI
+
+Alur baru: AnalysisController ? AnalysisRunService ? AnalyzeWorkloadRun pada queue analysis ? DeepSeekClient ? AiOutputValidator ? ActivityAnalysis. AnalysisReportService menghitung agregat/prioritas; AnalysisExportService menyajikan hasil lengkap melalui DomPDF dan PhpSpreadsheet. Prompt berada di resources/prompts, template PDF di resources/views/reports, UI di pages/AnalysisPage.tsx, dan kontrak di types/analysis.ts. Lihat README bagian Menjalankan analisis AI untuk worker, cache, retry, TLS Windows, serta API. Tidak ada tabel domain baru di luar tujuh tabel; metadata ditambahkan melalui migration.

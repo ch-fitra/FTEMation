@@ -77,7 +77,7 @@ Jalankan `node scripts/review-session.mjs` menggunakan Playwright lokal yang sam
 
 ## Login yang ringkas dan responsif
 
-Judul tab hanya `FTEMation`. Panah dekoratif di sisi kanan tombol Keluar dihapus. Login berisi logo/judul terpusat, email, password, dan tombol navy `Masuk`; deskripsi form, catatan akses demo, serta footer human oversight pada login tidak ditampilkan. Aturan oversight pada domain aplikasi tetap berlaku.
+Judul tab hanya `FTEMation`. Panah dekoratif di sisi kanan tombol Keluar dihapus. Login berisi logo/judul terpusat, username, password, dan tombol navy `Masuk`; deskripsi form, catatan akses demo, serta footer human oversight pada login tidak ditampilkan. Aturan oversight pada domain aplikasi tetap berlaku. Tombol mata pada password dapat dioperasikan dengan pointer/keyboard, memiliki label Tampilkan/Sembunyikan password, dan tidak mengirim form. Password tersembunyi secara default.
 
 Login menempati viewport dengan `position: fixed` dan `100dvh`, tanpa scroll dokumen. Panel cerita disembunyikan pada layar sempit. Layar landscape pendek memakai identitas dan form berdampingan agar input/tombol tetap terjangkau; portrait pendek memakai jarak serta logo lebih ringkas. Area form memiliki fallback overflow untuk viewport ekstrem atau keyboard virtual agar kontrol tidak terpotong. Aturan login terkumpul di `styles/pages/login.css`.
 
@@ -86,3 +86,11 @@ Gunakan `node scripts/review-responsive.mjs` untuk memeriksa login dan tiga hala
 Verifikasi setelah penyederhanaan login (11 November 2026): build dan lint lulus; 48 pemeriksaan responsif pada 12 viewport dan 16 pemeriksaan sesi lulus, tanpa error JavaScript. Screenshot portrait kecil, tablet, landscape, dan desktop ditinjau langsung. Keyboard virtual perangkat fisik dan browser selain Chrome belum diuji.
 
 Verifikasi setelah perbaikan flash workspace dan pembaruan popup: build/lint, 28 pemeriksaan refresh, 16 pemeriksaan popup/sesi, dan 37 pemeriksaan UI lulus. Rekaman pengguna memperlihatkan placeholder aktivitas sebelum login; regresi kini mengamati perubahan DOM sejak awal dokumen agar kemunculan sesaat tersebut ikut terdeteksi. Pengujian layout memakai satu sesi server yang sah untuk beberapa viewport, sedangkan login/logout nyata diuji terpisah oleh suite sesi, sehingga tidak perlu menghabiskan batas percobaan login hanya untuk menangkap screenshot.
+
+## Akun demo dan tombol password
+
+Login memakai username `akun demo`, password demo yang ditentukan pengguna, dan nama profil `Demo`. Kolom `users.username` ditambahkan lewat migration; email tersimpan hanya sebagai identitas internal akun yang sama. Riwayat import dan data workload dipertahankan. Validasi login dan rate limit memakai username. Password disimpan melalui hashing Laravel, bukan plaintext database.
+
+`.env` diringkas menjadi tujuh kelompok dengan komentar pendek; rahasia lain dipertahankan dan tidak ditampilkan dalam output. `.env.example` tetap berisi password/API key kosong. Seeder menyelaraskan nama/username, tetapi tidak mereset password akun lama; reset akun lokal dilakukan sekali sesuai instruksi pengguna.
+
+Verifikasi 11 November 2026: migration MySQL pada `ftemation` dan penyelarasan akun berhasil; build/lint/Pint lulus; 43 tes PHPUnit (202 assertion), 31 pemeriksaan HTTP, 24 pemeriksaan sesi, serta 48 pemeriksaan responsif lulus. Pengujian mencakup login username, penolakan input email, validasi/rate limit, tombol mata dengan klik/keyboard, profil Demo, serta acceptance dataset tersimpan. Screenshot login kecil/mobile dan overview ditinjau langsung.

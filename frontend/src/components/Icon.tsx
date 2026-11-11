@@ -11,9 +11,22 @@ export type IconName =
     | "logout"
     | "check"
     | "close"
+    | "eye"
+    | "eyeOff"
     | "shield";
 
 const paths: Record<IconName, ReactNode> = {
+    eye: (
+        <>
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+            <circle cx="12" cy="12" r="3" />
+        </>
+    ),
+    eyeOff: (
+        <>
+            <path d="m3 3 18 18M10.6 5.1 12 5c6.5 0 10 7 10 7a19 19 0 0 1-3.2 4.1M6.2 6.2A20 20 0 0 0 2 12s3.5 7 10 7c2.1 0 4-.7 5.6-1.7M10 10a3 3 0 0 0 4 4" />
+        </>
+    ),
     close: <path d="m6 6 12 12M6 18 18 6" />,
     logout: (
         <path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4m6-12 4 4-4 4m-8-4h12" />

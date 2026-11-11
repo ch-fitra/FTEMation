@@ -11,11 +11,12 @@ class DemoUserSeeder extends Seeder
     public function run(): void
     {
         $password = config('ftemation.demo_password');
-        if (! is_string($password) || strlen($password) < 12) {
-            throw new RuntimeException('Isi DEMO_PASSWORD minimal 12 karakter di .env sebelum menjalankan seeder.');
+        if (! is_string($password) || strlen($password) < 8) {
+            throw new RuntimeException('Isi DEMO_PASSWORD minimal 8 karakter di .env sebelum menjalankan seeder.');
         }
-        User::firstOrCreate(['email' => config('ftemation.demo_email')], [
-            'name' => 'Demo Reviewer', 'password' => $password,
+        $user = User::firstOrCreate(['email' => config('ftemation.demo_email')], [
+            'name' => config('ftemation.demo_name'), 'username' => config('ftemation.demo_username'), 'password' => $password,
         ]);
+        $user->fill(['name' => config('ftemation.demo_name'), 'username' => config('ftemation.demo_username')])->save();
     }
 }

@@ -8,8 +8,8 @@ const origin = process.env.SMOKE_ORIGIN ?? base
 if (!['localhost', '127.0.0.1'].includes(new URL(base).hostname)) throw new Error('Smoke test only supports a local server.')
 const env = await readFile(new URL('../.env', import.meta.url), 'utf8')
 const value = key => process.env[key] ?? env.match(new RegExp(`^${key}=(.*)$`, 'm'))?.[1].trim().replace(/^(["'])(.*)\1$/, '$2')
-const credentials = { email: value('DEMO_EMAIL'), password: value('DEMO_PASSWORD') }
-if (!credentials.email || !credentials.password) throw new Error('Set DEMO_EMAIL and DEMO_PASSWORD in .env.')
+const credentials = { username: value('DEMO_USERNAME'), password: value('DEMO_PASSWORD') }
+if (!credentials.username || !credentials.password) throw new Error('Set DEMO_USERNAME and DEMO_PASSWORD in .env.')
 const cookies = new Map()
 let checks = 0
 async function request(path, { method = 'GET', json, body, csrf = true } = {}) {
@@ -48,7 +48,7 @@ if (id) {
   const summary = detail.data.summary
   assert.equal(summary.activities_count, 60); assert.equal(summary.employees_count, 12); assert.equal(summary.departments_count, 3)
   assert(Math.abs(summary.total_fte - 4.4671875) < 1e-10); checks += 4
-  assert.equal(summary.estimated_fte_saving, null); checks++
+  assert(summary.estimated_fte_saving === null || (Number.isFinite(summary.estimated_fte_saving) && summary.estimated_fte_saving >= 0 && summary.estimated_fte_saving <= summary.total_fte)); checks++
   const activity = await request(`/api/imports/${id}/activities?search=ACT-0001`); status(activity, 200, 'activity search')
   assert.equal(activity.data.total, 1); assert.equal(Number(activity.data.data[0].fte), 0.1875); checks += 2
   status(await request('/api/imports', { method: 'POST', csrf: false }), 419, 'import requires CSRF')
@@ -59,7 +59,7 @@ status(await request('/api/user'), 401, 'private endpoint denied after logout')
 const spa = await request('/'); status(spa, 200, 'built SPA served')
 assert.match(spa.data, /<div id="root"><\/div>/); checks++
 // BrowserRouter navigation does not test the server's deep-link handling.
-for (const path of ['/imports', '/activities', '/imports?review=refresh']) {
+for (const path of ['/imports', '/activities', '/analysis', '/imports?review=refresh']) {
   const direct = await request(path)
   status(direct, 200, `direct navigation/refresh ${path}`)
   assert.match(direct.data, /<div id="root"><\/div>/); checks++

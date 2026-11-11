@@ -8,11 +8,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AnalysisRun extends Model
 {
-    protected $fillable = ['import_id', 'model_name', 'prompt_version', 'config_snapshot', 'summary_json', 'status', 'input_tokens', 'output_tokens', 'error_message'];
+    protected $fillable = ['import_id', 'model_name', 'prompt_version', 'config_snapshot', 'summary_json', 'status', 'input_tokens', 'output_tokens', 'error_message', 'started_at', 'completed_at', 'heartbeat_at', 'summary_status', 'actual_model', 'requests_count'];
 
     protected function casts(): array
     {
-        return ['config_snapshot' => 'array', 'summary_json' => 'array'];
+        return ['config_snapshot' => 'array', 'summary_json' => 'array', 'started_at' => 'datetime', 'completed_at' => 'datetime', 'heartbeat_at' => 'datetime'];
     }
 
     public function import(): BelongsTo

@@ -13,7 +13,7 @@ class AuthController extends Controller
     public function login(LoginRequest $request): JsonResponse
     {
         if (! Auth::guard('web')->attempt($request->validated())) {
-            throw ValidationException::withMessages(['email' => ['Email atau password tidak sesuai.']]);
+            throw ValidationException::withMessages(['username' => ['Username atau password tidak sesuai.']]);
         }
         $request->session()->regenerate();
 

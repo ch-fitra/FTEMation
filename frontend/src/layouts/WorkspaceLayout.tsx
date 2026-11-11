@@ -16,6 +16,7 @@ import { api, errorMessages } from "../lib/http";
 import ActivitiesPage from "../pages/ActivitiesPage";
 import ImportsPage from "../pages/ImportsPage";
 import OverviewPage from "../pages/OverviewPage";
+import AnalysisPage from "../pages/AnalysisPage";
 import type { User } from "../types/auth";
 import type { ImportItem } from "../types/workload";
 import WorkspaceHeader from "./WorkspaceHeader";
@@ -82,6 +83,16 @@ export default function WorkspaceLayout({
                     ) : workload.errors.length > 0 &&
                       !workload.summary ? null : (
                         <Routes>
+                            <Route
+                                path="/analysis"
+                                element={
+                                    <AnalysisPage
+                                        key={workload.selectedId}
+                                        importId={workload.selectedId}
+                                        onComplete={workload.refreshImports}
+                                    />
+                                }
+                            />
                             <Route
                                 path="/"
                                 element={

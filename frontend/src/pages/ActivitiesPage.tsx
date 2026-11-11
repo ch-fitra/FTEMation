@@ -154,13 +154,17 @@ export default function ActivitiesPage({
                                                 {Number(a.volume)} ×{" "}
                                                 {Number(a.duration_minutes)} ×{" "}
                                                 {
-                                                    {
-                                                        daily: 240,
-                                                        weekly: 48,
-                                                        monthly: 12,
-                                                    }[a.frequency]
+                                                    summary?.calculation
+                                                        .annual_factors[
+                                                        a.frequency
+                                                    ]
                                                 }{" "}
-                                                / 115200 = {a.fte}
+                                                /{" "}
+                                                {
+                                                    summary?.calculation
+                                                        .annual_capacity_minutes
+                                                }{" "}
+                                                = {a.fte}
                                             </code>
                                         </details>
                                     </td>

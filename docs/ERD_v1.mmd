@@ -11,6 +11,7 @@ erDiagram
     USERS {
         bigint id PK
         string name
+        string username UK
         string email UK
         string password
     }
@@ -51,6 +52,13 @@ erDiagram
         string status
         int input_tokens
         int output_tokens
+        string actual_model
+        string summary_status
+        int requests_count
+        text error_message
+        timestamp started_at
+        timestamp completed_at
+        timestamp heartbeat_at
     }
     ACTIVITY_GROUPS {
         bigint id PK
@@ -69,6 +77,10 @@ erDiagram
         json factors
         string risk_level
         string effort_level
+        string automation_scope
+        decimal priority_score
+        int attempts
+        boolean cache_hit
         boolean oversight_required
         text oversight_note
         decimal estimated_fte_saving

@@ -21,7 +21,7 @@ try {
  const anonymous=await browser.newContext();
  const login=await anonymous.newPage();
  await login.goto(`${base}/`);
- await login.getByLabel('Email',{exact:true}).fill(setting('DEMO_EMAIL'));
+ await login.getByLabel('Username',{exact:true}).fill(setting('DEMO_USERNAME'));
  await login.getByLabel('Password',{exact:true}).fill(setting('DEMO_PASSWORD'));
  await login.getByRole('button',{name:'Masuk',exact:true}).click();
  await login.locator('.department-chart').waitFor();

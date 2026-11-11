@@ -14,6 +14,12 @@ export interface Department {
     total_fte: number;
 }
 export interface Summary {
+    calculation: {
+        annual_capacity_minutes: number;
+        annual_factors: Record<string, number>;
+    };
+    automation_levels?: Record<string, number> | null;
+    analysis_run_id?: number | null;
     activities_count: number;
     employees_count: number;
     departments_count: number;

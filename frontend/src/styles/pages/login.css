@@ -130,6 +130,36 @@ html:has(.login-layout) {
     background: white;
     border-color: var(--primary);
 }
+.password-field {
+    position: relative;
+    margin-bottom: 20px;
+}
+.login-card .password-field input {
+    padding-right: 50px;
+    margin-bottom: 0;
+}
+.password-toggle {
+    position: absolute;
+    inset: 0 3px 0 auto;
+    width: 42px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #73859b;
+    border-radius: 6px;
+    box-shadow: none;
+}
+.password-toggle:hover {
+    background: transparent;
+    color: var(--primary);
+}
+.password-toggle:focus-visible {
+    outline-offset: -5px;
+}
+.password-toggle .icon {
+    width: 19px;
+    height: 19px;
+}
 .login-card .login-submit {
     height: 48px;
     margin-top: 6px;

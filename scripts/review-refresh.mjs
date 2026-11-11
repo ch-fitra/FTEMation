@@ -64,7 +64,7 @@ try {
     const context = await browser.newContext();
     const login = await context.newPage();
     await login.goto(`${base}/`);
-    await login.getByLabel('Email', { exact: true }).fill(setting('DEMO_EMAIL'));
+    await login.getByLabel('Username', { exact: true }).fill(setting('DEMO_USERNAME'));
     await login.getByLabel('Password', { exact: true }).fill(setting('DEMO_PASSWORD'));
     await login.getByRole('button', { name: /^Masuk$/ }).click();
     await login.locator('.department-chart').waitFor();
