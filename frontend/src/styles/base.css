@@ -1,0 +1,302 @@
+/* Shared design tokens: navy and cyan inspired by the Tancorp reference. */
+:root {
+    color-scheme: light;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: #b4c2d3 #f3f6fa;
+    font-family: "Segoe UI", Arial, sans-serif;
+    color: var(--text);
+    background: var(--canvas);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.55;
+    --navy: #071e45;
+    --navy-soft: #143762;
+    --primary: #006eab;
+    --primary-hover: #005387;
+    --accent: #00a8dc;
+    --text: #172e4d;
+    --muted: #5c6e85;
+    --border: #e0e7f0;
+    --canvas: #f4f6fa;
+    --surface: #ffffff;
+}
+* {
+    box-sizing: border-box;
+}
+body {
+    margin: 0;
+}
+/* Match native controls/scrollbars to the application's light surface. */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+::-webkit-scrollbar-track {
+    background: #f3f6fa;
+}
+::-webkit-scrollbar-thumb {
+    background: #b4c2d3;
+    border: 2px solid #f3f6fa;
+    border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #8b9eb6;
+}
+::-webkit-scrollbar-button {
+    width: 0;
+    height: 0;
+    display: none;
+}
+button,
+input,
+select {
+    font: inherit;
+}
+a {
+    color: var(--primary);
+    text-decoration: none;
+}
+a:hover {
+    text-decoration: underline;
+}
+button,
+.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 18px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background-color 140ms ease,
+        border-color 140ms ease,
+        box-shadow 140ms ease;
+}
+button:hover,
+.button:hover {
+    background: #edf3f9;
+    border-color: #c2d2e3;
+    text-decoration: none;
+}
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+:where(button, a, input, select, summary):focus-visible {
+    outline: 3px solid #4bbde3;
+    outline-offset: 3px;
+}
+.primary {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+.primary:hover {
+    background: var(--primary-hover);
+    color: white;
+    border-color: var(--primary-hover);
+}
+.full {
+    width: 100%;
+}
+.text-button {
+    background: transparent;
+    color: var(--primary);
+    border: 0;
+    padding: 5px 0;
+    text-align: left;
+}
+.text-button:hover {
+    background: transparent;
+    color: var(--navy);
+    text-decoration: underline;
+}
+h1,
+h2,
+h3,
+p {
+    margin-top: 0;
+}
+h1 {
+    font-size: 30px;
+    font-weight: 650;
+    line-height: 1.25;
+    letter-spacing: -0.8px;
+    margin-bottom: 12px;
+}
+h2 {
+    font-size: 21px;
+    font-weight: 650;
+    line-height: 1.3;
+    letter-spacing: -0.4px;
+    margin-bottom: 12px;
+    color: var(--navy);
+}
+h3 {
+    font-size: 17px;
+}
+.muted {
+    color: var(--muted);
+}
+small {
+    font-size: 12px;
+}
+.eyebrow {
+    display: block;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 650;
+    letter-spacing: 1.1px;
+    margin-bottom: 9px;
+}
+.icon {
+    display: inline-block;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+.brand {
+    display: flex;
+    align-items: center;
+    width: fit-content;
+    color: inherit;
+}
+.brand:hover {
+    text-decoration: none;
+}
+.brand-logo {
+    display: block;
+    width: 164px;
+    max-width: 100%;
+    height: auto;
+    background: white;
+    border-radius: 4px;
+}
+label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text);
+}
+input,
+select {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    padding: 12px 13px;
+    color: var(--text);
+    background: white;
+    border: 1px solid #ccd7e4;
+    border-radius: 7px;
+}
+input::placeholder {
+    color: #79899d;
+}
+input:disabled {
+    background: #edf1f6;
+}
+form > input {
+    margin-bottom: 22px;
+}
+.alert {
+    border: 1px solid;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 0 0 22px;
+    overflow-wrap: anywhere;
+    font-size: 13px;
+}
+.alert ul {
+    margin: 8px 0 0;
+    padding-left: 18px;
+    max-height: 280px;
+    overflow: auto;
+}
+.error {
+    color: #922e36;
+    background: #fff3f3;
+    border-color: #f0cdd1;
+}
+.warning {
+    color: #725421;
+    background: #fff9e9;
+    border-color: #ebdfbd;
+}
+.app-loading {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    padding: 30px;
+    color: var(--muted);
+}
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+.placeholder-line {
+    display: block;
+    height: 12px;
+    width: 85%;
+    background: #e8eef5;
+    border-radius: 4px;
+}
+.placeholder-line.short {
+    width: 45%;
+}
+.placeholder-line.value {
+    height: 42px;
+    width: 55%;
+}
+.placeholder-line.heading {
+    height: 24px;
+    width: 60%;
+    margin-top: 14px;
+}
+.metric-accent .placeholder-line {
+    background: #264166;
+}
+.placeholder-panel {
+    min-height: 468px;
+}
+.placeholder-row {
+    margin-top: 36px;
+    display: grid;
+    gap: 16px;
+}
+.placeholder-filters {
+    margin-top: 28px;
+}
+.placeholder-control {
+    height: 70px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: #f5f8fc;
+}
+.placeholder-activity {
+    min-height: 115px;
+    padding: 20px 12px;
+    display: grid;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+}
+.placeholder-history {
+    min-height: 245px;
+}
+.activity-register[aria-busy="true"] .table-scroll {
+    opacity: 0.6;
+}

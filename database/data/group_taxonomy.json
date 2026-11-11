@@ -1,0 +1,102 @@
+[
+  {
+    "code": "structured_record_entry",
+    "name": "Structured Record Entry",
+    "description": "Memindahkan atau menginput informasi terstruktur ke aplikasi target."
+  },
+  {
+    "code": "rule_based_validation",
+    "name": "Rule Based Validation",
+    "description": "Memeriksa kesesuaian dokumen/field menggunakan aturan dan checklist eksplisit."
+  },
+  {
+    "code": "periodic_reporting",
+    "name": "Periodic Reporting",
+    "description": "Mengekstrak dan menyajikan metrik berkala sebagai laporan."
+  },
+  {
+    "code": "standard_followup",
+    "name": "Standard Followup",
+    "description": "Mengirim komunikasi pengingat atau pembaruan status terstandar."
+  },
+  {
+    "code": "exception_investigation",
+    "name": "Exception Investigation",
+    "description": "Menelusuri penyebab kasus abnormal atau ketidakcocokan."
+  },
+  {
+    "code": "data_reconciliation",
+    "name": "Data Reconciliation",
+    "description": "Mencocokkan transaksi atau saldo dari dua atau lebih sumber data."
+  },
+  {
+    "code": "human_negotiation",
+    "name": "Human Negotiation",
+    "description": "Bernegosiasi untuk mencapai kesepakatan dengan pihak lain."
+  },
+  {
+    "code": "assisted_classification",
+    "name": "Assisted Classification",
+    "description": "Mengategorikan item berdasarkan kriteria dan informasi kontekstual."
+  },
+  {
+    "code": "contextual_analysis",
+    "name": "Contextual Analysis",
+    "description": "Menafsirkan pola, penyebab, dan implikasi bisnis."
+  },
+  {
+    "code": "complex_accounting_adjustment",
+    "name": "Complex Accounting Adjustment",
+    "description": "Menilai dan mengusulkan jurnal nonrutin atau penyesuaian khusus."
+  },
+  {
+    "code": "supervisory_approval",
+    "name": "Supervisory Approval",
+    "description": "Menilai dan menyetujui permintaan yang membutuhkan otoritas pimpinan."
+  },
+  {
+    "code": "kpi_monitoring",
+    "name": "Kpi Monitoring",
+    "description": "Memantau indikator kinerja dan penyimpangan."
+  },
+  {
+    "code": "planning_forecasting",
+    "name": "Planning Forecasting",
+    "description": "Memproyeksikan kebutuhan dan menentukan rencana berbasis skenario."
+  },
+  {
+    "code": "scheduling_coordination",
+    "name": "Scheduling Coordination",
+    "description": "Mengatur waktu atau sumber daya lintas pihak dengan sejumlah kendala."
+  },
+  {
+    "code": "high_impact_decision",
+    "name": "High Impact Decision",
+    "description": "Mengambil keputusan konsekuensial dengan trade-off signifikan."
+  },
+  {
+    "code": "master_data_update",
+    "name": "Master Data Update",
+    "description": "Memperbarui atribut data induk yang menjadi referensi sistem."
+  },
+  {
+    "code": "templated_document",
+    "name": "Templated Document",
+    "description": "Menyusun dokumen standar dari template dan master data."
+  },
+  {
+    "code": "routine_qa_response",
+    "name": "Routine Qa Response",
+    "description": "Menjawab pertanyaan standar berdasar kebijakan atau basis pengetahuan."
+  },
+  {
+    "code": "human_interview",
+    "name": "Human Interview",
+    "description": "Menilai kandidat melalui interaksi langsung dan pertimbangan manusia."
+  },
+  {
+    "code": "quotation_comparison",
+    "name": "Quotation Comparison",
+    "description": "Membandingkan alternatif penawaran dengan kriteria pengadaan."
+  }
+]

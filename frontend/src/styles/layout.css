@@ -1,0 +1,205 @@
+/* Application shell and persistent navigation. */
+.workspace {
+    display: flex;
+    min-height: 100vh;
+}
+.sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    width: 232px;
+    padding: 28px 18px 20px;
+    background: var(--navy);
+    color: #e2ecf8;
+    border-right: 1px solid #183558;
+    overflow-y: auto;
+    scrollbar-color: #375171 var(--navy);
+}
+.sidebar .brand {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 11px;
+    padding: 0 10px;
+    margin: 0 0 48px;
+    color: white;
+    font-size: 23px;
+    font-weight: 650;
+    letter-spacing: -0.8px;
+}
+.sidebar-mark {
+    width: 38px;
+    height: 38px;
+    filter: brightness(0) invert(1);
+}
+.brand-dot {
+    color: #43c9ec;
+}
+.sidebar .brand small {
+    display: block;
+    color: #93accb;
+    font-size: 8px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    margin-top: 3px;
+}
+.nav-label {
+    padding: 0 14px;
+    color: #819cbc;
+    font-size: 10px;
+    font-weight: 650;
+    letter-spacing: 1px;
+    margin-bottom: 13px;
+}
+.sidebar nav {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.sidebar nav a {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 47px;
+    padding: 12px 14px;
+    border-radius: 7px;
+    color: #b9cbe0;
+    font-size: 13px;
+    font-weight: 550;
+}
+.sidebar nav a:hover {
+    background: #142f53;
+    color: white;
+    text-decoration: none;
+}
+.sidebar nav a.active {
+    color: white;
+    background: #193c65;
+    box-shadow: inset 3px 0 #45caed;
+}
+.sidebar nav a.active .icon {
+    color: #52d1f4;
+}
+.sidebar-bottom {
+    margin-top: auto;
+    border-top: 1px solid #244060;
+    padding: 20px 2px 0;
+    color: #93accb;
+}
+.sidebar-session {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    padding: 0 12px;
+    margin-bottom: 14px;
+}
+.session-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #5bd7d7;
+}
+.sidebar-logout {
+    width: 100%;
+    justify-content: flex-start;
+    background: transparent;
+    color: #d3e0f0;
+    border: 1px solid #2b476a;
+    padding: 11px 12px;
+    font-size: 12px;
+}
+.sidebar-logout:hover {
+    background: #193c65;
+    border-color: #4f7297;
+    color: white;
+}
+.main-shell {
+    margin-left: 232px;
+    flex: 1;
+    min-width: 0;
+}
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 15;
+    min-height: 64px;
+    background: white;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 38px;
+    gap: 18px;
+}
+.workspace-title {
+    margin: 0;
+    color: var(--navy);
+    font-size: 20px;
+    font-weight: 650;
+    line-height: 1.25;
+    letter-spacing: -0.65px;
+}
+.header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 22px;
+}
+.header-actions > .button {
+    font-size: 12px;
+    white-space: nowrap;
+    padding: 8px 13px;
+}
+.user-menu {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    font-size: 12px;
+    color: var(--text);
+}
+.avatar {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #eaf2fb;
+    color: var(--navy);
+    border: 1px solid #d6e3f3;
+    font-size: 12px;
+    font-weight: 650;
+}
+.content {
+    max-width: 1480px;
+    margin: 0 auto;
+    padding: 32px 38px;
+}
+.status {
+    display: inline-block;
+    padding: 4px 9px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 4px;
+}
+.status.imported {
+    background: #edf6f1;
+    color: #246449;
+}
+.status.failed {
+    background: #fff0f0;
+    color: #a43541;
+}
+.status.pending {
+    background: #fff7df;
+    color: #806014;
+}
+footer {
+    margin: 26px 0 0;
+    color: var(--muted);
+    font-size: 11px;
+    text-align: center;
+    line-height: 1.8;
+}
