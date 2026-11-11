@@ -11,23 +11,25 @@ class WorkloadSummaryService
     {
         // Recalculate from persisted inputs before summing; do not sum rounded display values.
         $calculator = app(FteCalculator::class);
+        $latest = $import->analysisRuns()->latest('id')->first();
+        $complete = $import->analysisRuns()->where('status', 'completed')->latest('id')->first();
+        $calculation = $complete?->config_snapshot['calculation'] ?? collect(config('ftemation'))->only(['annual_capacity_minutes', 'annual_factors', 'saving_rates', 'risk_factors', 'effort_factors'])->all();
         $activities = $import->activities()->with('employee')->get();
-        $departments = $activities->groupBy('employee.department')->map(function ($rows, $name) use ($calculator) {
+        $departments = $activities->groupBy('employee.department')->map(function ($rows, $name) use ($calculator, $calculation) {
             return [
                 'department' => $name,
                 'activities_count' => $rows->count(),
                 'employees_count' => $rows->pluck('employee_id')->unique()->count(),
-                'total_fte' => $rows->sum(fn ($a) => $calculator->calculate((float) $a->volume, (float) $a->duration_minutes, $a->frequency)),
+                'total_fte' => $rows->sum(fn ($a) => $calculator->calculate((float) $a->volume, (float) $a->duration_minutes, $a->frequency, $calculation)),
             ];
         })->values();
 
-        $latest = $import->analysisRuns()->latest('id')->first();
-        $complete = $import->analysisRuns()->where('status', 'completed')->latest('id')->first();
         $report = null;
         if ($complete) {
             $reports = app(AnalysisReportService::class);
             $reports->assertComplete($complete);
             $report = $reports->build($complete);
+            $departments = collect($report['departments']);
         }
 
         return [
@@ -39,8 +41,9 @@ class WorkloadSummaryService
             'analysis_status' => $latest?->status ?? 'not_started',
             'analysis_run_id' => $complete?->id,
             'estimated_fte_saving' => $report['totals']['estimated_fte_saving'] ?? null,
+            'remaining_fte' => $report['totals']['remaining_fte'] ?? null,
             'automation_levels' => $report['totals']['levels'] ?? null,
-            'calculation' => ['annual_capacity_minutes' => config('ftemation.annual_capacity_minutes'), 'annual_factors' => config('ftemation.annual_factors')],
+            'calculation' => $calculation,
             'warnings' => $import->warnings ?? [],
         ];
     }

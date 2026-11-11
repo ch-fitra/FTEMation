@@ -32,6 +32,14 @@ export default function OverviewPage({
             </div>
         );
     const max = Math.max(...summary.departments.map((d) => d.total_fte), 0.001);
+    const status = ({
+        not_started: "Analisis belum dimulai",
+        queued: "Analisis dalam antrean",
+        processing: "Analisis sedang berjalan",
+        failed: "Analisis gagal — buka detail untuk retry",
+        partial_failed: "Analisis sebagian gagal — buka detail untuk retry",
+        completed: "Analisis lengkap",
+    } as Record<string, string>)[summary.analysis_status] ?? summary.analysis_status;
     return (
         <>
             {summary.warnings.map((w) => (
@@ -160,14 +168,12 @@ export default function OverviewPage({
                 </span>
                 <div>
                     <strong>
-                        {summary.analysis_run_id
-                            ? "Hasil otomatisasi siap ditinjau"
-                            : "Temukan peluang otomatisasi"}
+                        {status}
                     </strong>
                     <p>
-                        Potensi penghematan akan ditampilkan setelah penilaian
-                        aktivitas tersedia. Angka FTE di atas berasal dari data
-                        workload yang tercatat.
+                        {summary.analysis_run_id
+                            ? `KPI dan metodologi memakai snapshot hasil lengkap #${summary.analysis_run_id}. High ${summary.automation_levels?.high ?? 0} · Medium ${summary.automation_levels?.medium ?? 0} · Low ${summary.automation_levels?.low ?? 0}. Sisa workload ${formatFte(summary.remaining_fte ?? 0)} FTE. ${Object.entries(summary.calculation.saving_rates).map(([level, rate]) => `${level}: ${new Intl.NumberFormat('id-ID', { style: 'percent', maximumFractionDigits: 2 }).format(rate)}`).join(' · ')}.`
+                            : "FTE baseline memakai konfigurasi aktif. Potensi saving tersedia setelah seluruh aktivitas dan kesimpulan berhasil dianalisis."}
                     </p>
                 </div>
                 <Link className="button primary" to="/analysis">

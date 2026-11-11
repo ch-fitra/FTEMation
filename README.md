@@ -177,7 +177,7 @@ Isi `DEEPSEEK_API_KEY`, gunakan `DEEPSEEK_MODEL=deepseek-flash`, lalu jalankan m
 ```powershell
 php artisan config:clear
 php artisan migrate
-php artisan queue:work database --queue=analysis --timeout=360 --tries=1
+php artisan queue:work database --queue=analysis --timeout=360 --tries=40
 ```
 
 Buka **Analisis AI** (`/analysis`), klik **Mulai analisis**. Status diperbarui otomatis; halaman boleh ditutup sementara worker berjalan. Request sungguhan mengirim nama/deskripsi aktivitas dan konteks departemen ke DeepSeek. Label jawaban dalam workbook evaluasi tidak dikirim. Kesimpulan menerima agregat Laravel dan rekomendasi prioritas, termasuk nama karyawan. Gunakan dataset yang diizinkan untuk dikirim ke penyedia AI.
@@ -214,4 +214,57 @@ Cache privat per pemilik selama tiga puluh hari memuat fingerprint model, endpoi
 
 Prompt di `resources/prompts/`, orkestrasi/validator/provider/report/export di `app/Services/Analysis/`, job di `app/Jobs/`, dan halaman di `frontend/src/pages/AnalysisPage.tsx`. Jangan memasukkan kredensial ke prompt atau snapshot. Status lengkap tidak membuktikan penilaian AI selalu benar; pengguna tetap meninjau alasan, risiko, dan oversight.
 
-Pekerjaan pengumpulan berikutnya: review hasil dengan penilai domain, uji pada MySQL 8 serta hosting target, rekam demo bersuara 8–10 menit, dan siapkan ZIP tanpa rahasia. What-If dan Flutter tetap ditunda.
+## Metodologi penilaian AI
+
+Sumber rubrik adalah `resources/prompts/activity-v1.txt` dan validasinya pada `AiOutputValidator`. Level merupakan penilaian teks oleh DeepSeek, bukan skor berbobot kelima faktor.
+
+### Kriteria High
+
+Sebagian besar langkah aktivitas dapat diotomatisasi menggunakan prosedur dan data yang cukup terstruktur. Human oversight tetap digunakan bila diperlukan. Prompt mensyaratkan mayoritas langkah administratif berulang, aturan jelas, input terstruktur, dan scope `majority_steps`. Human judgment high tidak boleh menghasilkan High.
+
+### Kriteria Medium
+
+Sebagian proses dapat diotomatisasi, tetapi masih memerlukan evaluasi manusia, pemeriksaan exception, atau keputusan kontekstual. Scope `partial_steps`; review/exception manusia masih signifikan.
+
+### Kriteria Low
+
+Aktivitas sangat bergantung pada judgment manusia, negosiasi, keputusan strategis, atau risiko tinggi sehingga AI lebih cocok sebagai pendukung. Scope `assist_only`. Risiko tinggi sendiri tidak otomatis menjadikan seluruh administrasi Low: keputusan konsekuensial tetap manusia, bantuan administratif dinilai terpisah. Kategori `high_impact_decision` wajib Low dan oversight.
+
+### Lima faktor evaluasi
+
+| Faktor | Pertanyaan yang dinilai (low/medium/high) |
+|---|---|
+| Repetitiveness | Seberapa berulang langkah dan pola aktivitas? |
+| Rule clarity | Seberapa eksplisit aturan dan kriteria pencocokan? |
+| Data structure | Seberapa terstruktur input dan data pendukung? |
+| Human judgment | Seberapa besar kebutuhan interpretasi, negosiasi, atau keputusan kontekstual? |
+| Operational risk | Seberapa besar konsekuensi kesalahan operasional? |
+
+Automation scope mengartikan batas bantuan AI, bukan izin menjalankan keputusan final. Implementation effort adalah estimasi low/medium/high, bukan jumlah hari implementasi. Operational risk high atau human judgment high wajib oversight beserta catatan review/otoritas manusia. Pembayaran, perubahan rekening, rekrutmen/disiplin, keputusan strategis dan keselamatan tetap membutuhkan manusia berwenang.
+
+Grouping memakai tepat satu dari 20 kategori tetap pada `database/data/group_taxonomy.json`, sesuai mekanisme dominan (entry, validasi, rekonsiliasi, reporting, investigasi, dan lainnya). Kemiripan departemen/kata tidak cukup. Level dan risiko dalam satu grup boleh berbeda; anggota dihitung sekali.
+
+Rumus FTE, saving rate, dan priority score dijelaskan di bagian Perhitungan di atas. Saving rate adalah asumsi skenario deterministik, bukan prediksi persentase dari model. Snapshot `config_snapshot.calculation` menyimpan kapasitas, faktor tahunan, saving, risk dan effort ketika run dibuat. Report, export, serta KPI/metodologi Overview menggunakan completed run terbaru pada dataset; status tetap menunjukkan run terbaru jika run lain sedang berjalan/gagal. Tanpa completed run, Overview menampilkan baseline konfigurasi aktif tanpa saving. Halaman Analisis menampilkan snapshot run yang dipilih. Perubahan konfigurasi tidak menulis ulang run lama.
+
+Model dikonfigurasi lewat `DEEPSEEK_MODEL` (default `deepseek-flash`), endpoint/key lewat `DEEPSEEK_BASE_URL` dan `DEEPSEEK_API_KEY` di `.env`; nama variabel lengkap ada pada `.env.example`. Alias model provider dapat berubah; `actual_model`, prompt/version, fingerprint, token, request count, status dan kegagalan disimpan untuk provenance. JSON mode, temperature 0, thinking disabled, validator enum/ID/oversight dan retry terbatas meningkatkan keandalan struktur, bukan jaminan kebenaran semantik.
+
+Output dapat mengasumsikan dokumen/integrasi yang belum tersedia, meremehkan exception, atau memilih kategori ambigu. Verifikasi rekomendasi dengan pemilik proses sebelum implementasi. Review ACT-0002/0007/0009/0039 ada di [AI review](docs/AI_VERIFICATION.md). Kesesuaian 13/15 terhadap sampel evaluasi bukan akurasi umum model. Tidak ada label evaluasi dalam input inference, training, atau hasil palsu.
+
+### Lifecycle queue dan pemulihan
+
+Database queue menambah attempts setiap reservasi, termasuk setelah `release(15)`. Job mengizinkan 40 attempts (sekitar 10 menit contention), sedangkan `maxExceptions=1` membuat exception tak tertangani langsung gagal. Retry HTTP maksimal tiga kali ditangani provider; hasil sukses tidak dipilih ulang. Lock per run 400 detik melindungi satu step; timeout job/worker 360 detik, retry_after 420 detik. Jaga urutan **timeout < lock TTL < retry_after**. Callback failure mengambil lock yang sama, sehingga job duplikat yang exhausted tidak menandai run milik worker lain gagal. Run yang berhenti tanpa worker dapat dipulihkan melalui retry manual setelah heartbeat stale sepuluh menit. Retry contention berhenti pada batas attempts; tidak ada requeue tanpa batas untuk job tersebut.
+
+Worker production sebaiknya Linux dengan PCNTL dan process manager agar timeout keras berlaku. Windows tanpa PCNTL tidak menjamin penghentian OS tepat pada timeout; jangan menjalankan beberapa worker Windows untuk inference nyata yang berpotensi melampaui TTL. Pengujian pemutusan OS dan beban multiworker hosting tetap perlu dilakukan. Transaksi database/cache tidak dapat menjamin exactly-once terhadap API eksternal bila proses mati sesudah respons diterima sebelum hasil tersimpan; cache dan hasil sukses menghindari pengulangan normal, bukan jaminan transaksi lintas provider.
+
+## Konfigurasi production
+
+- Gunakan `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL=https://domain-anda`, HTTPS dan satu origin. Arahkan document root ke `public/`.
+- Set `SESSION_SECURE_COOKIE=true`, session HttpOnly, SameSite=lax, `SANCTUM_STATEFUL_DOMAINS` sesuai hostname; jangan mematikan CSRF. Sesuaikan trusted proxy pada hosting yang memakai reverse proxy.
+- Ganti password demo sebelum dipublikasikan. Seeder tidak mengganti password pengguna yang sudah ada: ubah lewat mekanisme pengelola yang aman. Jangan gunakan akun MySQL root XAMPP di hosting publik; gunakan user database terbatas khusus aplikasi.
+- API key hanya pada `.env` server/secret store yang memasok env backend. Jangan gunakan prefix `VITE_` untuk secret. `.env` tidak boleh masuk Git, ZIP, web root, atau log. `.env.example` hanya placeholder; kredensial demo terdokumentasi khusus dataset sintetis.
+- Jalankan worker database queue `analysis` dengan perintah di atas melalui process manager, restart worker setelah deploy. Pastikan database cache/queue/session tersedia; `DB_QUEUE_RETRY_AFTER=420` harus lebih besar dari timeout.
+- Instal dependency dengan `composer install --no-dev --optimize-autoloader`, `npm --prefix frontend ci`, dan build. Lakukan migration terkontrol serta backup sesuai kebijakan hosting. Pastikan `storage/` dan `bootstrap/cache/` writable, file upload/exports tetap privat.
+- Setelah env benar, jalankan `php artisan config:cache` dan `php artisan view:cache`; jangan cache konfigurasi sebelum env siap. Rotasi log, batasi akses log, monitor failed jobs/heartbeat/cache dan kapasitas disk. Jangan log header Authorization atau payload credential.
+- Jalankan smoke test pada staging HTTPS sebelum publikasi. MySQL 8, hosting target, TLS cookie aktual dan pemulihan worker OS belum dibuktikan oleh tes lokal MariaDB.
+
+Paket pengumpulan dibuat di `submission/` (diabaikan Git). Rekam video dari naskah yang disediakan, lalu unggah hanya setelah otorisasi pengguna. What-If dan Flutter tetap ditunda.

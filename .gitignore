@@ -21,6 +21,7 @@
 /vendor
 /storage/framework/testing
 /tmp
+/submission/
 /.env.*
 !/.env.example
 Homestead.json

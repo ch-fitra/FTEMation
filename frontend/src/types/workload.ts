@@ -17,6 +17,7 @@ export interface Summary {
     calculation: {
         annual_capacity_minutes: number;
         annual_factors: Record<string, number>;
+        saving_rates: Record<string, number>;
     };
     automation_levels?: Record<string, number> | null;
     analysis_run_id?: number | null;
@@ -27,6 +28,7 @@ export interface Summary {
     departments: Department[];
     analysis_status: string;
     estimated_fte_saving: number | null;
+    remaining_fte: number | null;
     warnings: string[];
 }
 export interface Activity {

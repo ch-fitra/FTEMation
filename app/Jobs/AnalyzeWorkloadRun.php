@@ -13,7 +13,11 @@ class AnalyzeWorkloadRun implements ShouldQueue
 {
     use Queueable;
 
-    public int $tries = 1;
+    // release() consumes a database-queue attempt. Allow up to ten minutes of
+    // contention, but fail immediately on an unhandled exception.
+    public int $tries = 40;
+
+    public int $maxExceptions = 1;
 
     public int $timeout = 360;
 
@@ -41,8 +45,18 @@ class AnalyzeWorkloadRun implements ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
-        if ($run = AnalysisRun::find($this->runId)) {
-            app(AnalysisRunService::class)->fail($run, 'Worker terhenti atau batas waktu terlampaui. Periksa worker/log server lalu retry.');
+        // An exhausted duplicate must never fail a run being processed by
+        // another worker. A stale run remains recoverable through manual retry.
+        $lock = Cache::lock('analysis-run:'.$this->runId, 400);
+        if (! $lock->get()) {
+            return;
+        }
+        try {
+            if ($run = AnalysisRun::find($this->runId)) {
+                app(AnalysisRunService::class)->fail($run, 'Worker terhenti atau batas waktu terlampaui. Periksa worker/log server lalu retry.');
+            }
+        } finally {
+            $lock->release();
         }
     }
 }

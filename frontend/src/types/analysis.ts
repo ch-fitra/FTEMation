@@ -41,6 +41,9 @@ export interface Entity extends Totals {
     oversight_note: string;
 }
 export interface Report {
+    calculation: {
+        saving_rates: Record<string, number>;
+    };
     totals: Totals;
     activities: AnalysisActivity[];
     employees: Entity[];

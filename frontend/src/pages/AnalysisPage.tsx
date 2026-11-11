@@ -279,7 +279,7 @@ export default function AnalysisPage({
                             value={formatFte(
                                 report.totals.estimated_fte_saving,
                             )}
-                            detail="Asumsi High 60% · Medium 30% · Low 10%"
+                            detail={`Asumsi ${Object.entries(report.calculation.saving_rates).map(([level, rate]) => `${level[0].toUpperCase()}${level.slice(1)} ${new Intl.NumberFormat('id-ID', { style: 'percent', maximumFractionDigits: 2 }).format(rate)}`).join(' · ')}`}
                             icon="chart"
                             accent
                         />
