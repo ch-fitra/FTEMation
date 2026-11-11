@@ -13,12 +13,23 @@ export default function ActivityAnalysisDialog({ dialogRef, activity, savingRate
     savingRate?: number;
     onClose: () => void;
 }) {
-    return <dialog aria-label="Detail analisis aktivitas" className="activity-dialog" ref={dialogRef} onClose={onClose}>
-        <button autoFocus onClick={() => dialogRef.current?.close()}>Tutup detail</button>
-        {activity && <article>
-            <p>{activity.activity_id} · {activity.department} · {activity.employee_name}</p>
-            <h2>{activity.activity_name}</h2>
-            <span className={`level level-${activity.automation_level}`}>{activity.automation_level}</span>
+    return <dialog aria-label="Detail analisis aktivitas" className="activity-dialog" ref={dialogRef} onClose={onClose} onCancel={(event) => {
+        event.preventDefault();
+        dialogRef.current?.close();
+    }}>
+        <header className="activity-dialog-header">
+            <div>
+                {activity && <>
+                    <h2>{activity.activity_name}</h2>
+                    <div className="activity-dialog-identity">
+                        <p>{activity.activity_id} · {activity.department} · {activity.employee_name}</p>
+                        <span className={`level level-${activity.automation_level}`}>{activity.automation_level}</span>
+                    </div>
+                </>}
+            </div>
+            <button autoFocus onClick={() => dialogRef.current?.close()}>Tutup detail</button>
+        </header>
+        {activity && <article className="activity-dialog-body">
             <h3>Alasan klasifikasi</h3><p>{activity.reason}</p>
             <dl className="analysis-factors">{Object.entries(activity.factors).map(([key, value]) =>
                 <div key={key}><dt>{factorLabels[key] ?? key}</dt><dd>{value}</dd></div>)}</dl>

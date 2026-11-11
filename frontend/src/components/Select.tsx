@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import "../styles/select.css";
 
 type Option = { value: string; label: ReactNode; disabled?: boolean };
-export default function Select({ children, value, onChange, disabled, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+export default function Select({ children, value, onChange, disabled, singleLineOptions = false, ...props }: SelectHTMLAttributes<HTMLSelectElement> & { singleLineOptions?: boolean }) {
     const id = useId();
     const trigger = useRef<HTMLButtonElement>(null);
     const popup = useRef<HTMLDivElement>(null);
@@ -35,7 +35,9 @@ export default function Select({ children, value, onChange, disabled, ...props }
         const rect = trigger.current!.getBoundingClientRect();
         const below = window.innerHeight - rect.bottom - 16;
         const height = Math.min(280, Math.max(100, below < 160 ? rect.top - 16 : below));
-        setPosition({ top: below < 160 ? Math.max(8, rect.top - height - 6) : rect.bottom + 6, left: rect.left, width: rect.width, maxHeight: height });
+        const width = singleLineOptions ? Math.min(Math.max(rect.width, 600), window.innerWidth - 16) : rect.width;
+        const left = singleLineOptions ? Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)) : rect.left;
+        setPosition({ top: below < 160 ? Math.max(8, rect.top - height - 6) : rect.bottom + 6, left, width, maxHeight: height });
         setActive(Math.max(0, selected));
         setOpen(true);
     }
@@ -66,8 +68,8 @@ export default function Select({ children, value, onChange, disabled, ...props }
             }}>
             <span>{options[selected]?.label ?? "Pilih opsi"}</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg>
         </button>
-        {createPortal(<div ref={popup} id={`${id}-list`} role="listbox" aria-label={props["aria-label"] ?? "Pilihan"} className={`select-popup ${open ? "is-open" : ""}`} style={position} inert={!open} onWheel={(e) => e.stopPropagation()}>
-            {options.map((o, i) => <div key={o.value} id={`${id}-${i}`} role="option" aria-selected={selected === i} aria-disabled={o.disabled} className={active === i ? "is-active" : ""} onMouseDown={e => e.preventDefault()} onMouseMove={() => setActive(i)} onClick={() => choose(i)}><span>{o.label}</span>{selected === i && <span aria-hidden="true">✓</span>}</div>)}
+        {createPortal(<div ref={popup} id={`${id}-list`} role="listbox" aria-label={props["aria-label"] ?? "Pilihan"} className={`select-popup ${singleLineOptions ? "select-popup-single-line" : ""} ${open ? "is-open" : ""}`} style={position} inert={!open} onWheel={(e) => e.stopPropagation()}>
+            {options.map((o, i) => <div key={o.value} id={`${id}-${i}`} role="option" aria-selected={selected === i} aria-disabled={o.disabled} className={active === i ? "is-active" : ""} onMouseDown={e => e.preventDefault()} onMouseMove={() => setActive(i)} onClick={() => choose(i)}><span title={singleLineOptions && typeof o.label === "string" ? o.label : undefined}>{o.label}</span>{selected === i && <span aria-hidden="true">✓</span>}</div>)}
         </div>, document.body)}
     </div>;
 }

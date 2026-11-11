@@ -13,4 +13,4 @@ Route::get('/{page?}', function () {
     abort_unless(is_file(public_path('build/index.html')), 503, 'Build frontend belum tersedia. Jalankan npm --prefix frontend run build.');
 
     return response()->file(public_path('build/index.html'), ['Cache-Control' => 'no-store']);
-})->where('page', 'imports|activities|analysis');
+})->where('page', 'imports|activities|analysis|results');

@@ -13,17 +13,25 @@
 .spotlight {margin-bottom:24px;}
 .methodology {align-self:start;}
 summary {cursor:pointer;font-weight:600;min-height:32px;}
-.activity-dialog {width:min(760px,calc(100% - 24px));max-height:88dvh;overflow:auto;border:1px solid var(--border);border-radius:14px;padding:24px;color:var(--text);box-shadow:0 24px 80px #071e4530;}
+.activity-dialog {width:min(760px,calc(100% - 24px));max-height:88dvh;overflow:hidden;border:1px solid var(--border);border-radius:14px;padding:0;color:var(--text);box-shadow:0 24px 80px #071e4530;}
+.activity-dialog[open] {display:flex;flex-direction:column;}
+.activity-dialog-header {display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;}
+.activity-dialog-header > div {min-width:0;overflow-wrap:anywhere;}
+.activity-dialog-header h2 {margin:0 0 6px;font-size:18px;line-height:1.35;}
+.activity-dialog-header p {margin:0;color:var(--muted);font-size:11px;line-height:1.5;}
+.activity-dialog-header button {flex-shrink:0;padding:7px 11px;font-size:12px;min-height:36px;}
+.activity-dialog-identity {display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;}
+.activity-dialog-identity .level {padding:3px 8px;font-size:11px;}
+.activity-dialog-body {min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:20px 24px;}
+.activity-dialog-body > h3:first-child {margin-top:0;}
 .activity-dialog::backdrop {background:#071e4580;}
-.activity-dialog > button {position:sticky;top:0;float:right;}
-.activity-dialog h2 {clear:both;}
 .analysis-history-disclosure {padding:8px 0;}
 .analysis-activity {padding-top:12px;padding-bottom:12px;}
 .analysis-page .analysis-toolbar {padding:18px 22px;}
 .journey {text-align:left;display:inline-grid;gap:8px;}
 :focus-visible {outline:3px solid var(--primary);outline-offset:3px;}
 @media(max-width:1024px) {.dataset-context {align-items:stretch;flex-direction:column;gap:10px;}.dataset-context label{max-width:none;}.opportunity-grid {gap:12px;}}
-@media(max-width:767px) {.opportunity-grid{grid-template-columns:1fr;}.decision-heading{align-items:stretch;flex-direction:column;gap:12px;}.dataset-context{padding:12px;}.decision-heading h2{font-size:22px;}.activity-dialog{padding:16px;}.main-shell,.content,.panel{min-width:0;} .dataset-context p{overflow-wrap:anywhere;}}
+@media(max-width:767px) {.opportunity-grid{grid-template-columns:1fr;}.decision-heading{align-items:stretch;flex-direction:column;gap:12px;}.dataset-context{padding:12px;}.decision-heading h2{font-size:22px;}.activity-dialog-header{padding:12px 16px;gap:10px;}.activity-dialog-header h2{font-size:16px;}.activity-dialog-header button{padding:9px 10px;font-size:12px;}.activity-dialog-body{padding:16px;}.main-shell,.content,.panel{min-width:0;} .dataset-context p{overflow-wrap:anywhere;}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;}}
 
 .analysis-page .analysis-toolbar > button.secondary {background:var(--surface);border-color:var(--border);color:var(--text);}

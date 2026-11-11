@@ -2,6 +2,8 @@
 
 Aplikasi assessment workload: import Excel, perhitungan FTE, analisis DeepSeek, grouping lintas departemen, dashboard, prioritas, dan export JSON/Excel/PDF.
 
+Hasil final assessment dipilih dari **Run #1 / Import #1**, workbook utama 60 aktivitas, model `deepseek-flash`, prompt **activity-v1 / summary-v1**. Pasangan workbook dan `results.json` terverifikasi disiapkan di `../FTEMation-Archive-2026-11-11/submission/final-run-1/`, beserta manifest SHA-256. Lihat [keputusan hasil final dan review perbedaan evaluasi](docs/FINAL_ASSESSMENT_REVIEW.md). Default v2 pada kode berlaku untuk run baru; hasil final ini tetap v1 dan tidak membuktikan efektivitas inference v2. Run #4 (90 aktivitas) bukan bagian pasangan final ini.
+
 ## Stack dan struktur
 
 Laravel 13 / PHP 8.4 di root repository; React + TypeScript + Vite di `frontend/`. REST JSON + Axios, Sanctum session/CSRF, Vanilla CSS, MySQL/MariaDB, database queue/cache, PhpSpreadsheet dan DomPDF.
@@ -204,6 +206,10 @@ Skrip pertama hanya membaca tabel domain dan menghitung hash; tidak mencetak kre
 
 ## Decision workspace dan verifikasi UI
 
-Overview menampilkan KPI dan tiga prioritas dari completed run yang sama. Dataset aktif ditampilkan di seluruh workspace; tautan detail menggunakan `dataset`, `run`, dan `activity` pada URL. Pergantian dataset mereset halaman aktivitas/analisis dan mengabaikan respons lama. Template Excel tersedia pada halaman Import melalui endpoint privat `/api/import-template`.
+Navigasi workspace: Overview, Import dataset, Analisis AI, Hasil analisis, lalu Data aktivitas. Analisis AI (`/analysis`) digunakan untuk memulai analisis, memantau progres dan retry bagian gagal. Hasil analisis (`/results`) digunakan untuk memilih riwayat run, membaca rekomendasi/detail dan mengunduh export; tanpa pilihan run, halaman memilih completed run terbaru. KPI dan peluang teratas hanya ditampilkan di Overview. Data aktivitas berisi input Excel dan FTE deterministik untuk dataset aktif, bukan gabungan seluruh dataset atau hasil penilaian AI. Dataset lain tetap disimpan dan dapat dipilih di Import dataset. Perpindahan halaman atau dataset mereset scroll ke atas; membuka/menutup detail aktivitas tetap mempertahankan posisi halaman hasil.
+
+Pemeriksaan navigasi dan scroll dengan API sintetis tanpa inference/mutasi: `node scripts/review-analysis-navigation.mjs` (server lokal dan Playwright/Chrome diperlukan seperti skrip UI lainnya).
+
+Overview menampilkan KPI dan tiga prioritas dari completed run yang sama. Pemilih Dataset aktif ditampilkan di tengah header Overview, Hasil analisis dan Data aktivitas; hanya label dan nama file yang ditampilkan. Pilihan dataset tetap digunakan di seluruh workspace. Tautan detail menggunakan `dataset`, `run`, dan `activity` pada URL. Pergantian dataset mereset halaman aktivitas/analisis dan mengabaikan respons lama. Template Excel tersedia pada halaman Import melalui endpoint privat `/api/import-template`.
 
 Jalankan `node scripts/review-ui-ux.mjs` dengan server lokal aktif dan Playwright/Chrome tersedia pada folder sementara `ftemation-ui-review`. Skrip memakai respons API sintetis terisolasi, memblokir seluruh mutasi API, memeriksa enam breakpoint serta race pergantian dataset, dan menyimpan screenshot di `storage/framework/testing/ui-ux/`. Tidak menjalankan inference. Lihat [laporan UI/UX](docs/UI_UX_REFINEMENT_REPORT.md) dan [panduan desain](docs/UI_DESIGN.md).

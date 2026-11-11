@@ -171,7 +171,7 @@ export default function ImportsPage({
                                     <tr key={i.id}>
                                         <td>
                                             <strong>{i.filename}</strong>
-                                            <small>Import #{i.id}</small>
+                                            <small>Import {i.id}</small>
                                         </td>
                                         <td data-label="Diunggah">
                                             {formatDate(i.created_at)}

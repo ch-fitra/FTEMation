@@ -3,6 +3,20 @@
     gap: 22px;
     min-width: 0;
 }
+.results-header-actions {display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:12px;min-width:0;}
+.results-history {width:220px;max-width:100%;margin:0;}
+.results-header-actions button {font-size:12px;padding:8px 12px;min-height:38px;white-space:nowrap;}
+.analysis-metadata {display:flex;flex-wrap:wrap;gap:8px 24px;padding:12px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--muted);font-size:12px;}
+.analysis-metadata span {overflow-wrap:anywhere;}
+.analysis-metadata b {color:var(--text);font-weight:600;margin-right:4px;}
+.analysis-metadata-title {flex-basis:100%;color:var(--text);font-size:11px;letter-spacing:.04em;text-transform:uppercase;}
+.topbar .analysis-metadata {padding:6px 10px;gap:6px 12px;background:#f7f9fc;align-items:center;font-size:11px;}
+.topbar .analysis-metadata-title {flex-basis:auto;font-size:10px;letter-spacing:0;text-transform:none;}
+.topbar:has(.analysis-metadata) > .header-actions {min-width:0;flex:0 1 auto;}
+.topbar .analysis-metadata span {white-space:nowrap;}
+@media(min-width:1101px) {.topbar .analysis-metadata{flex-wrap:nowrap;}.topbar:has(.analysis-metadata) .workspace-title{flex-shrink:0;}}
+@media(max-width:1100px) {.topbar:has(.results-header-actions){flex-wrap:wrap;}.topbar:has(.results-header-actions) > .header-actions{flex:1 1 100%;}.results-header-actions{width:100%;justify-content:flex-start;}}
+@media(max-width:650px) {.results-history{width:100%;}.results-header-actions .analysis-exports{width:100%;}.results-header-actions .analysis-exports button{flex:1;padding:8px;}.analysis-metadata{gap:8px 16px;}}
 .analysis-toolbar,
 .analysis-status {
     display: flex;
@@ -191,6 +205,8 @@
 .analysis-tabs { gap:6px; padding:6px; background:var(--canvas); border:1px solid var(--border); border-radius:12px; }
 .analysis-tabs button { border-color:transparent; background:transparent; border-radius:8px; transition:background .18s,color .18s; }
 .analysis-tabs button[aria-pressed="true"] { background:var(--surface); color:var(--primary); border-color:#d1e1ef; box-shadow:0 2px 5px #071e4508; }
+.analysis-tabs {align-items:center;}
+.analysis-tabs .analysis-distribution {margin-left:auto;align-items:center;gap:8px;padding:4px;}
 .analysis-result-count { color:var(--muted); font-size:12px; margin:0 0 12px; }
 .analysis-results table th { background:#f5f8fc; }
 .analysis-results tbody tr:hover { background:#f8fbfe; }

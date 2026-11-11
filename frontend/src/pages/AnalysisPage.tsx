@@ -1,10 +1,9 @@
+import { createPortal } from "react-dom";
 import ActivityAnalysisDialog from "../components/ActivityAnalysisDialog";
-import OpportunityCards from "../components/OpportunityCards";
 import Select from "../components/Select";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import ErrorAlert from "../components/ErrorAlert";
-import MetricCard from "../components/MetricCard";
 import { api, errorMessages } from "../lib/http";
 import { formatFte } from "../lib/format";
 import type { AnalysisRun } from "../types/analysis";
@@ -21,11 +20,16 @@ export default function AnalysisPage({
     importId,
     onComplete,
     model,
+    view = "process",
+    headerTarget,
 }: {
     importId: number | null;
     onComplete: () => void;
     model?: string;
+    view?: "process" | "results";
+    headerTarget?: HTMLElement | null;
 }) {
+    const resultsView = view === "results";
     const [params, setParams] = useSearchParams();
     const dialog = useRef<HTMLDialogElement>(null);
     const mounted = useRef(true);
@@ -68,14 +72,14 @@ export default function AnalysisPage({
                 setRunId((id) =>
                     requestedRun > 0 ? requestedRun : data.some((r: { id: number }) => r.id === id)
                         ? id
-                        : (data[0]?.id ?? null),
+                        : ((resultsView ? data.find((r: { status: string }) => r.status === "completed") : data[0])?.id ?? null),
                 );
             })
             .catch((e) => {
                 if (!controller.signal.aborted) setErrors(errorMessages(e));
             });
         return () => controller.abort();
-    }, [importId, version, requestedRun]);
+    }, [importId, version, requestedRun, resultsView]);
     useEffect(() => {
         if (!runId) return;
         const controller = new AbortController();
@@ -191,12 +195,11 @@ export default function AnalysisPage({
                 next.delete("activity");
                 setParams(next, { replace: true });
             }} />
-            <section className="panel analysis-toolbar">
+            {!resultsView && <section className="panel analysis-toolbar">
                 <div>
-                    <span className="eyebrow">AUTOMATION INTELLIGENCE</span>
-                    <h2>Peluang yang dapat ditindaklanjuti</h2>
+                    <h2>Proses analisis dataset</h2>
                     <p>
-                        {report ? `Hasil run #${runId}. Melihat hasil sebelumnya tidak membutuhkan request AI baru.` : `Penilaian teks menggunakan layanan DeepSeek${model ? ` (${model})` : ""}. FTE dan saving dihitung oleh Laravel.`}
+                        {report ? `Hasil run ${runId}. Melihat hasil sebelumnya tidak membutuhkan request AI baru.` : `Penilaian teks menggunakan layanan DeepSeek${model ? ` (${model})` : ""}. FTE dan saving dihitung oleh Laravel.`}
                     </p>
                 </div>
                 <button
@@ -210,12 +213,25 @@ export default function AnalysisPage({
                           ? "Analisis berjalan"
                           : report ? "Analisis Ulang" : "Mulai analisis"}
                 </button>
-            </section>
+            </section>}
             <ErrorAlert messages={errors} />
-            {history.length > 0 && (<details className="analysis-history-disclosure"><summary>Riwayat analisis & pilihan run #{runId}</summary>
-                <label className="analysis-history">
-                    Riwayat analisis
+            {!resultsView && run && headerTarget && createPortal(
+                    <section className="analysis-metadata" aria-label="Metadata hasil analisis">
+                        <strong className="analysis-metadata-title">Metadata analisis</strong>
+                        <span><b>Run</b> {runId}</span>
+                        <span><b>Model</b> {run.actual_model ?? run.model_name}</span>
+                        <span><b>Status</b> {statusLabel[run.status] ?? run.status}</span>
+                        <span><b>Request AI</b> {run.requests_count}</span>
+                        <span><b>Token</b> {run.input_tokens + run.output_tokens}</span>
+                        <span><b>Aktivitas dari cache</b> {run.cache_hits}</span>
+                    </section>
+            , headerTarget)}
+            {resultsView && headerTarget && createPortal(<>
+                {history.length > 0 && (
+                <label className="results-history">
+                    <span className="visually-hidden">Riwayat analisis</span>
                     <Select
+                        aria-label="Riwayat analisis"
                         value={runId ?? ""}
                         onChange={(e) => {
                             setRun(null);
@@ -231,16 +247,20 @@ export default function AnalysisPage({
                             </option>
                         ))}
                     </Select>
-                </label></details>
-            )}
+                </label>)}
+                {report && run?.status === "completed" && <div className="analysis-exports" aria-label="Unduh hasil analisis">
+                    {[ ["xlsx", "Unduh Excel"], ["pdf", "Unduh PDF"], ["json", "Unduh JSON"] ].map(([format, label]) => <button key={format} disabled={!!download} onClick={() => void exportFile(format)}>{download === format ? "Menyiapkan..." : label}</button>)}
+                </div>}
+            </>, headerTarget)}
             {!run && (
                 <p role="status">
                     {runId
                         ? "Memuat hasil analisis…"
-                        : "Belum ada analisis. Mulai untuk menilai seluruh aktivitas dalam dataset ini."}
+                        : resultsView ? "Belum ada hasil lengkap. Jalankan analisis di halaman Analisis AI." : "Belum ada analisis. Mulai untuk menilai seluruh aktivitas dalam dataset ini."}
                 </p>
             )}
-            {run && run.status !== "completed" && (
+            {resultsView && run && run.status !== "completed" && <p className="alert">Run ini belum selesai. <Link to={`/analysis?dataset=${importId}&run=${runId}`}>Pantau proses di Analisis AI</Link></p>}
+            {!resultsView && run && run.status !== "completed" && (
                 <section className="panel analysis-status" aria-live="polite">
                     <div>
                         <strong>{statusLabel[run.status] ?? run.status}</strong>
@@ -290,61 +310,12 @@ export default function AnalysisPage({
                     )}
                 </section>
             )}
-            {report && run?.status === "completed" && (
+            {!resultsView && report && run?.status === "completed" && (
+                <section className="panel"><h2>Analisis selesai</h2><p>Seluruh hasil siap ditinjau. Buka halaman hasil untuk rekomendasi, kelompok aktivitas, dan export.</p><Link className="button primary" to={`/results?dataset=${importId}&run=${runId}`}>Lihat hasil analisis</Link></section>
+            )}
+            {resultsView && report && run?.status === "completed" && (
                 <>
-                    <div className="metrics">
-                        <MetricCard
-                            label="Total workload"
-                            value={formatFte(report.totals.total_fte)}
-                            detail="FTE sebelum otomatisasi"
-                            icon="clock"
-                        />
-                        <MetricCard
-                            label="Estimasi saving"
-                            value={formatFte(
-                                report.totals.estimated_fte_saving,
-                            )}
-                            detail={`Asumsi ${Object.entries(report.calculation.saving_rates).map(([level, rate]) => `${level[0].toUpperCase()}${level.slice(1)} ${new Intl.NumberFormat('id-ID', { style: 'percent', maximumFractionDigits: 2 }).format(rate)}`).join(' · ')}`}
-                            icon="chart"
-                            accent
-                        />
-                        <MetricCard
-                            label="Sisa workload"
-                            value={formatFte(report.totals.remaining_fte)}
-                            detail="Setelah estimasi penghematan"
-                            icon="activities"
-                        />
-                        <MetricCard
-                            label="Kontrol manusia wajib"
-                            value={String(report.totals.oversight_count)}
-                            detail="Menurut label AI; lihat catatan kontrol"
-                            icon="users"
-                        />
-                    </div>
-                    <section className="panel"><h2>Top 3 peluang otomatisasi</h2><OpportunityCards activities={ranked} importId={importId} runId={runId} onDetail={openDetail} /></section>
-                    <details className="analysis-technical"><summary>Metadata hasil run #{runId}</summary><p>{run.actual_model ?? run.model_name} | {run.requests_count} request | {run.input_tokens + run.output_tokens} token | {run.cache_hits} dari cache. Status: {statusLabel[run.status]}.</p></details>
                     <section className="panel analysis-results">
-                        <div className="panel-heading">
-                            <div>
-                                <h2>Hasil analisis</h2>
-                                <p>{report.interpretation}</p>
-                            </div>
-                            <div className="analysis-exports">
-                                {["json", "xlsx", "pdf"].map((f) => (
-                                    <button
-                                        key={f}
-                                        disabled={!!download}
-                                        onClick={() => void exportFile(f)}
-                                    >
-                                        {download === f
-                                            ? "Menyiapkan…"
-                                            : f === "json"
-                                              ? "results.json"
-                                              : f.toUpperCase()}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
                         <details className="analysis-reading-guide">
                             <summary>Cara membaca hasil</summary>
                             <p>Mulai dari prioritas tertinggi. Saving adalah estimasi kapasitas waktu dalam FTE; skor prioritas mempertimbangkan saving, risiko, dan kesulitan implementasi.</p>
@@ -364,18 +335,6 @@ export default function AnalysisPage({
                                 ))}
                             </details>
                         )}
-                        <div className="analysis-distribution">
-                            {Object.entries(report.totals.levels).map(
-                                ([l, n]) => (
-                                    <span
-                                        key={l}
-                                        className={`level level-${l}`}
-                                    >
-                                        {l.toUpperCase()} <b>{n}</b>
-                                    </span>
-                                ),
-                            )}
-                        </div>
                         <div
                             className="analysis-tabs"
                             role="group"
@@ -396,6 +355,18 @@ export default function AnalysisPage({
                                     {title}
                                 </button>
                             ))}
+                        <div className="analysis-distribution" aria-label="Jumlah aktivitas per level otomatisasi">
+                            {Object.entries(report.totals.levels).map(
+                                ([l, n]) => (
+                                    <span
+                                        key={l}
+                                        className={`level level-${l}`}
+                                    >
+                                        {l.toUpperCase()} <b>{n}</b>
+                                    </span>
+                                ),
+                            )}
+                        </div>
                         </div>
                         {["priorities", "activities"].includes(tab) && (
                             <>

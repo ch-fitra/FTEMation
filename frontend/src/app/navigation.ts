@@ -12,7 +12,7 @@ export const workspaceNavigation: NavigationItem[] = [
     {
         path: "/",
         label: "Overview",
-        title: "Ruang kerja assessment",
+        title: "Dashboard assessment",
         icon: "overview",
     },
     {
@@ -22,15 +22,21 @@ export const workspaceNavigation: NavigationItem[] = [
         icon: "upload",
     },
     {
-        path: "/activities",
-        label: "Data aktivitas",
-        title: "Data aktivitas",
-        icon: "activities",
-    },
-    {
         path: "/analysis",
         label: "Analisis AI",
         title: "Analisis otomatisasi",
         icon: "chart",
+    },
+    {
+        path: "/results",
+        label: "Hasil analisis",
+        title: "Hasil analisis AI",
+        icon: "check",
+    },
+    {
+        path: "/activities",
+        label: "Data aktivitas",
+        title: "Data aktivitas",
+        icon: "activities",
     },
 ];

@@ -379,19 +379,28 @@ td small {
     font-weight: 500;
     letter-spacing: 0.35px;
 }
-.activity-cell details {
+.activity-cell .activity-description {
     max-width: 370px;
-    margin-top: 9px;
+    margin-top: 6px;
     color: var(--muted);
     font-size: 12px;
 }
-.activity-cell summary {
-    color: var(--primary);
-    font-size: 11px;
-    cursor: pointer;
+.activity-description p {
+    margin: 0 0 6px;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
 }
-.activity-cell details p {
-    margin: 12px 0;
+.activity-calculation {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    font-size: 11px;
+    line-height: 1.5;
+}
+.activity-calculation > span {
+    font-weight: 600;
+    color: var(--text);
 }
 .activity-cell code {
     font-size: 11px;
@@ -413,13 +422,20 @@ td small {
     margin-bottom: 24px;
 }
 .filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    min-width: 0;
+    margin-bottom: 0;
     color: #50647e;
     font-size: 12px;
     font-weight: 500;
 }
 .filters input,
-.filters select {
-    margin-top: 9px;
+.filters select,
+.filters .custom-select > button {
+    height: 44px;
+    margin-top: 0;
     font-size: 12px;
     padding: 11px;
 }

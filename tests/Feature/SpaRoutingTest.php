@@ -39,7 +39,7 @@ class SpaRoutingTest extends TestCase
 
     public static function workspaceUrls(): array
     {
-        return [['/'], ['/imports'], ['/activities'], ['/analysis'], ['/imports?review=refresh']];
+        return [['/'], ['/imports'], ['/activities'], ['/analysis'], ['/results'], ['/results?dataset=1&run=10'], ['/imports?review=refresh']];
     }
 
     public function test_unknown_api_route_remains_not_found(): void

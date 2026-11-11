@@ -63,14 +63,6 @@ export default function ActivitiesPage({
             <span className="visually-hidden" role="status">
                 {loading ? "Memuat aktivitas…" : ""}
             </span>
-            <div className="panel-heading">
-                <div>
-                    <h2>Daftar aktivitas</h2>
-                </div>
-                <span className="subtle-tag">
-                    {result?.total ?? "…"} aktivitas
-                </span>
-            </div>
             <div className="filters">
                 <label>
                     Cari aktivitas atau karyawan
@@ -115,8 +107,6 @@ export default function ActivitiesPage({
                     </Select>
                 </label>
             </div>
-            <button onClick={() => { setSearch(""); setDepartment(""); setFrequency(""); setPage(1); }}>Reset filter</button>
-            {summary?.analysis_run_id && <Link className="button" to={`/analysis?dataset=${importId}&run=${summary.analysis_run_id}`}>Lihat hasil AI</Link>}
             <ErrorAlert messages={errors} />
             <p className="table-hint">
                 Geser tabel untuk melihat kolom lainnya.
@@ -147,11 +137,10 @@ export default function ActivitiesPage({
                                             {a.activity_code}
                                         </small>
                                         <strong>{a.activity_name}</strong>
-                                        <details>
-                                            <summary>
-                                                Deskripsi & perhitungan
-                                            </summary>
+                                        <div className="activity-description">
                                             <p>{a.description}</p>
+                                            <div className="activity-calculation">
+                                            <span>FTE</span>
                                             <code>
                                                 {Number(a.volume)} ×{" "}
                                                 {Number(a.duration_minutes)} ×{" "}
@@ -166,9 +155,10 @@ export default function ActivitiesPage({
                                                     summary?.calculation
                                                         .annual_capacity_minutes
                                                 }{" "}
-                                                = {a.fte}
+                                                = {formatFte(a.fte)}
                                             </code>
-                                        </details>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td>
                                         <strong>{a.employee.name}</strong>

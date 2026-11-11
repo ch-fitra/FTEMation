@@ -10,4 +10,7 @@
 .select-popup .is-active { background:#edf6fc; }
 .select-popup [aria-selected="true"] { color:var(--primary); font-weight:600; background:#e8f3fb; }
 .select-popup [aria-disabled="true"] { opacity:.5; cursor:default; }
+.select-popup-single-line [role="option"] {align-items:center;white-space:nowrap;overflow-wrap:normal;}
+.select-popup-single-line [role="option"] > span:first-child {min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.select-popup-single-line [role="option"] > span + span {flex-shrink:0;}
 @media(prefers-reduced-motion:reduce) { .select-popup,.custom-select svg { transition:none; } }

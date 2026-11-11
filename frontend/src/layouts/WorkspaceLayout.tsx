@@ -5,7 +5,7 @@ import {
     useLocation,
     useNavigate,
 } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import SessionDialog from "../components/SessionDialog";
 import type { SessionPhase } from "../components/SessionDialog";
 import { workspaceNavigation } from "../app/navigation";
@@ -31,6 +31,7 @@ export default function WorkspaceLayout({
     onLogout: () => void;
 }) {
     const workload = useWorkload();
+    const [resultsHeader, setResultsHeader] = useState<HTMLDivElement | null>(null);
     const [logoutPhase, setLogoutPhase] = useState<SessionPhase | null>(null);
     const [logoutErrors, setLogoutErrors] = useState<string[]>([]);
     useEffect(() => {
@@ -41,11 +42,17 @@ export default function WorkspaceLayout({
     const navigate = useNavigate();
     const { pathname } = useLocation();
     const currentPath = pathname.replace(/\/+$/, "") || "/";
+    useEffect(() => {
+        const previous = window.history.scrollRestoration;
+        window.history.scrollRestoration = "manual";
+        return () => { window.history.scrollRestoration = previous; };
+    }, []);
+    useLayoutEffect(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    }, [currentPath, workload.selectedId]);
     const currentPage =
         workspaceNavigation.find((item) => item.path === currentPath) ??
         workspaceNavigation[0];
-
-    const analysisStatus = workload.summary ? ({ completed: "Selesai", queued: "Dalam antrean", processing: "Sedang dianalisis", failed: "Gagal", partial_failed: "Sebagian gagal", not_started: "Belum dianalisis" } as Record<string, string>)[workload.summary.analysis_status] ?? workload.summary.analysis_status : "Belum dianalisis";
 
     async function logout() {
         if (logoutPhase !== "confirm") return;
@@ -76,19 +83,28 @@ export default function WorkspaceLayout({
                 <WorkspaceHeader
                     title={currentPage.title}
                     isOverview={currentPath === "/"}
-                    user={user}
-                />
-                <main className="content">
-                    <section className="dataset-context" aria-label="Dataset aktif" aria-busy={workload.loading}>
-                        <label>DATASET AKTIF
-                            <Select value={workload.selectedId ?? ""} aria-label="Dataset aktif" onChange={(e) => { workload.selectImport(Number(e.target.value)); navigate(`${currentPath}?dataset=${e.target.value}`); }}>
+                    analysisAction={currentPath === "/" && !workload.loading && workload.summary ? {
+                        to: `${workload.summary.analysis_run_id ? "/results" : "/analysis"}?dataset=${workload.selectedId}${workload.summary.analysis_run_id ? `&run=${workload.summary.analysis_run_id}` : ""}`,
+                        label: workload.summary.analysis_run_id ? "Lihat hasil analisis" : ["queued", "processing"].includes(workload.summary.analysis_status) ? "Lihat progres analisis" : "Mulai analisis AI",
+                    } : undefined}
+                    datasetControl={["/", "/results", "/activities"].includes(currentPath) ? (
+                        <label className="header-dataset">
+                            <span>Dataset aktif</span>
+                            <Select singleLineOptions value={workload.selectedId ?? ""} aria-label="Dataset aktif" onChange={(e) => {
+                                workload.selectImport(Number(e.target.value));
+                                navigate(`${currentPath}?dataset=${e.target.value}`);
+                            }}>
                                 <option value="" disabled>Pilih dataset</option>
-                                {workload.selectedImport && !workload.imports.some((i) => i.id === workload.selectedId) && <option value={workload.selectedId!}>{workload.selectedImport.filename} · #{workload.selectedId}</option>}
-                                {workload.imports.filter((i) => i.status === "imported").map((i) => <option key={i.id} value={i.id}>{i.filename} · #{i.id}</option>)}
+                                {workload.selectedImport && !workload.imports.some((i) => i.id === workload.selectedId) && <option value={workload.selectedId!}>{workload.selectedImport.filename}</option>}
+                                {workload.imports.filter((i) => i.status === "imported").map((i) => <option key={i.id} value={i.id}>{i.filename}</option>)}
                             </Select>
                         </label>
-                        <p role="status">{workload.loading ? "Memuat konteks dataset…" : workload.summary ? `${workload.summary.activities_count} aktivitas · ${workload.summary.employees_count} karyawan · ${workload.summary.departments_count} departemen` : "Belum ada dataset"}<br />{workload.summary?.analysis_run_id ? `Hasil lengkap: Run #${workload.summary.analysis_run_id} · Status terbaru: ${analysisStatus}` : `Hasil analisis belum tersedia | ${analysisStatus}`}</p>
-                    </section>
+                    ) : undefined}
+                    user={user}
+                    resultsActionsRef={["/results", "/analysis"].includes(currentPath) ? setResultsHeader : undefined}
+                    activitiesCount={currentPath === "/activities" && !workload.loading ? workload.summary?.activities_count : undefined}
+                />
+                <main className="content">
                     <ErrorAlert messages={workload.errors} />
                     {workload.loading ? (
                         <WorkspacePlaceholder page={currentPath} />
@@ -96,10 +112,15 @@ export default function WorkspaceLayout({
                       !workload.summary ? null : (
                         <Routes>
                             <Route
+                                path="/results"
+                                element={<AnalysisPage key={`results-${workload.selectedId}`} view="results" headerTarget={resultsHeader} importId={workload.selectedId} model={workload.summary?.analysis_model} onComplete={workload.refreshImports} />}
+                            />
+                            <Route
                                 path="/analysis"
                                 element={
                                     <AnalysisPage
                                         key={workload.selectedId}
+                                        headerTarget={resultsHeader}
                                         importId={workload.selectedId}
                                         model={workload.summary?.analysis_model}
                                         onComplete={workload.refreshImports}
