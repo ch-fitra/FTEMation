@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import AnalysisActionDialog from "../components/AnalysisActionDialog";
 import AiResultReview from "../components/AiResultReview";
 import ActivityAnalysisDialog from "../components/ActivityAnalysisDialog";
 import Icon from "../components/Icon";
@@ -14,6 +15,8 @@ import "../styles/pages/analysis.css";
 
 const statusLabel: Record<string, string> = {
     queued: "Dalam antrean",
+    cancel_requested: "Menunggu pembatalan",
+    cancelled: "Dibatalkan",
     processing: "Sedang dianalisis",
     completed: "Selesai",
     partial_failed: "Sebagian gagal",
@@ -63,6 +66,9 @@ export default function AnalysisPage({
     }, [selectedActivity, activityId]);
     const [errors, setErrors] = useState<string[]>([]);
     const [busy, setBusy] = useState(false);
+    const [action, setAction] = useState<"cancel" | "resume" | null>(null);
+    const [actionErrors, setActionErrors] = useState<string[]>([]);
+    const actionEpoch = useRef(0);
     const [download, setDownload] = useState("");
     const [version, setVersion] = useState(0);
     const [tab, setTab] = useState("priorities");
@@ -95,15 +101,21 @@ export default function AnalysisPage({
         let timer: number;
         const poll = async () => {
             try {
+                const epoch = actionEpoch.current;
                 const { data } = await api.get<AnalysisRun>(
                     `/api/analyses/${runId}`,
                     { signal: controller.signal },
                 );
                 if (controller.signal.aborted) return;
+                if (epoch !== actionEpoch.current) {
+                    timer = window.setTimeout(poll, 200);
+                    return;
+                }
                 if (data.import_id !== importId) {
                     setErrors(["Run ini bukan bagian dari dataset aktif. Pilih run yang sesuai dari riwayat."]);
                     return;
                 }
+                setErrors([]);
                 setRun(data);
                 setHistory((items) =>
                     items.map((item) =>
@@ -112,11 +124,14 @@ export default function AnalysisPage({
                             : item,
                     ),
                 );
-                if (["queued", "processing"].includes(data.status))
+                if (["queued", "processing", "cancel_requested"].includes(data.status))
                     timer = window.setTimeout(poll, 2000);
                 else if (data.status === "completed") onComplete();
             } catch (e) {
-                if (!controller.signal.aborted) setErrors(errorMessages(e));
+                if (!controller.signal.aborted) {
+                    setErrors(["Pembaruan status terputus. Mencoba kembali secara otomatis; proses di server tidak dibatalkan.", ...errorMessages(e)]);
+                    timer = window.setTimeout(poll, 5000);
+                }
             }
         };
         void poll();
@@ -146,6 +161,28 @@ export default function AnalysisPage({
             setErrors(errorMessages(e));
         } finally {
             setBusy(false);
+        }
+    }
+    function confirmAction(next: "cancel" | "resume") {
+        setActionErrors([]);
+        setAction(next);
+    }
+    async function lifecycleAction() {
+        if (!action || !runId || busy) return;
+        setBusy(true);
+        setActionErrors([]);
+        actionEpoch.current++;
+        try {
+            const { data } = await api.post(`/api/analyses/${runId}/${action}`, { execution_version: run?.execution_version ?? 0 });
+            if (!mounted.current) return;
+            setRun(previous => previous ? { ...previous, status: data.run.status } : previous);
+            setAction(null);
+            setParams({ dataset: String(importId), run: String(runId) });
+            setVersion(value => value + 1);
+        } catch (error) {
+            if (mounted.current) setActionErrors(errorMessages(error));
+        } finally {
+            if (mounted.current) setBusy(false);
         }
     }
     async function exportFile(format: string) {
@@ -181,6 +218,11 @@ export default function AnalysisPage({
             </section>
         );
     const active = run && ["queued", "processing"].includes(run.status);
+    const queued = run?.status === "queued";
+    const processing = run?.status === "processing";
+    const cancelling = run?.status === "cancel_requested";
+    const cancelled = run?.status === "cancelled";
+    const health = run?.queue_health;
     const report = run?.report;
     const ranked = report
         ? report.priorities.map((id) =>
@@ -198,6 +240,7 @@ export default function AnalysisPage({
     );
     return (
         <div className="analysis-page">
+            {action && <AnalysisActionDialog action={action} filename={dataset?.filename ?? `Dataset ${importId}`} runId={runId} busy={busy} errors={actionErrors} onConfirm={() => void lifecycleAction()} onClose={() => { if (!busy) setAction(null); }} />}
             <ActivityAnalysisDialog dialogRef={dialog} activity={selectedActivity} savingRate={report?.calculation.saving_rates[selectedActivity?.automation_level ?? ""]} onClose={() => {
                 if (!params.has("activity")) return;
                 const next = new URLSearchParams(params);
@@ -212,20 +255,29 @@ export default function AnalysisPage({
                         <span>Dataset {importId}</span>
                         {summary && <><span>{summary.activities_count} aktivitas</span><span>{summary.employees_count} karyawan</span><span>{summary.departments_count} departemen</span></>}
                     </div>
-                    <p>{active ? `Analisis ${runId} sedang berjalan untuk dataset ini.` : report ? "Analisis ulang membuat proses baru untuk dataset ini." : `Siap dianalisis dengan ${model ?? "DeepSeek"}.`}</p>
-                    <Link className="text-button" to="/imports">Pilih dataset lain ?</Link>
+                    <p>{cancelling ? "Permintaan pembatalan diterima. Menunggu proses berhenti dengan aman." : cancelled ? "Analisis dibatalkan. Hasil aktivitas yang selesai tetap tersimpan." : queued && run?.resumed_at ? `Analisis ${runId} dilanjutkan dan menunggu antrean.` : queued ? `Analisis ${runId} menunggu giliran diproses.` : processing ? `Analisis ${runId} sedang diproses untuk dataset ini.` : report ? "Analisis ulang membuat proses baru untuk dataset ini." : `Siap dianalisis dengan ${model ?? "DeepSeek"}.`}</p>
+                    <Link className="text-button" to="/imports">Pilih dataset lain &rarr;</Link>
                 </div>
+                <div className="analysis-toolbar-actions">
                 <button
                     className={report ? "secondary" : "primary"}
-                    disabled={busy || !!active || !historyLoaded || (!!runId && !run)}
-                    onClick={() => void start()}
+                    disabled={busy || !!active || cancelling || !historyLoaded || (!!runId && !run)}
+                    onClick={() => cancelled ? confirmAction("resume") : void start()}
                 >
                     {busy
                         ? "Memproses…"
-                        : active
-                          ? "Analisis berjalan"
-                          : !historyLoaded || (!!runId && !run) ? "Memuat analisis?" : report ? "Analisis ulang dataset ini" : "Mulai analisis"}
+                        : cancelling
+                          ? "Menunggu pembatalan"
+                          : cancelled
+                          ? "Lanjutkan Analisis"
+                          : queued
+                          ? run?.resumed_at ? "Dilanjutkan - menunggu antrean" : "Menunggu antrean"
+                          : processing
+                          ? "Sedang diproses"
+                          : !historyLoaded || (!!runId && !run) ? "Memuat analisis..." : report ? "Analisis ulang dataset ini" : "Mulai analisis"}
                 </button>
+                {active && <button type="button" className="analysis-cancel-button" disabled={busy} onClick={() => confirmAction("cancel")}>Batalkan Analisis</button>}
+                </div>
             </section>}
             <ErrorAlert messages={errors} />
             {!resultsView && headerTarget && createPortal(
@@ -280,29 +332,35 @@ export default function AnalysisPage({
             {!resultsView && run && run.status !== "completed" && (
                 <section className="panel analysis-status" aria-live="polite">
                     <div>
-                        <span className="eyebrow">ANALISIS {run.id} ? DATASET {importId}</span>
+                        <span className="eyebrow">ANALISIS {run.id} &middot; DATASET {importId}</span>
                         <h2>{dataset?.filename ?? `Dataset ${importId}`}</h2>
-                        <strong>{statusLabel[run.status] ?? run.status}</strong>
+                        <strong>{queued && run.resumed_at ? "Dilanjutkan - menunggu antrean" : statusLabel[run.status] ?? run.status}</strong>
                         <p>{run.progress.success ?? 0} dari {run.total} aktivitas berhasil dianalisis ({Math.floor((run.progress.success ?? 0) / Math.max(1, run.total) * 100)}%). {run.progress.failed ?? 0} gagal.</p>
                         <progress aria-label="Kemajuan analisis aktivitas" max={Math.max(1, run.total)} value={run.progress.success ?? 0} />
-                        <p className="muted">{run.status === "completed" ? "Hasil siap ditinjau dan diunduh." : active ? "Hasil lengkap akan tersedia setelah seluruh aktivitas dan kesimpulan selesai." : "Tinjau kendala di bawah, lalu coba kembali aktivitas yang gagal."}</p>
-                        <details className="analysis-technical"><summary>Detail proses analisis</summary>
-                            <p>{run.actual_model ?? run.model_name} · {run.requests_count} request · {run.input_tokens + run.output_tokens} token · {run.cache_hits} dari cache · Status kesimpulan: {statusLabel[run.summary_status] ?? run.summary_status}</p>
-                        </details>
+                        <p className="muted">{cancelling ? "Menunggu request yang sudah dikirim selesai. Tidak ada batch atau retry AI baru setelah pembatalan diterima." : cancelled ? "Seluruh hasil sukses dan pemakaian token tetap tercatat. Lanjutkan kapan saja untuk memproses bagian yang belum selesai." : queued ? "Job tersimpan di antrean. Analisis belum mulai diproses." : processing ? "Hasil lengkap tersedia setelah seluruh aktivitas dan kesimpulan selesai." : "Tinjau kendala di bawah, lalu coba kembali aktivitas yang gagal."}</p>
+                        {active && health && (health.stalled || health.worker_status === "not_detected" || health.delayed_jobs > 0) && (
+                            <div className="analysis-queue-notice" role="status">
+                                <strong>{health.stalled ? queued ? "Antrean belum bergerak lebih dari 10 menit" : "Progres belum diperbarui lebih dari 10 menit" : health.delayed_jobs > 0 ? "Antrean sedang menunggu jadwal berikutnya" : "Menunggu worker analisis"}</strong>
+                                <p>{health.worker_status === "not_detected" ? "Worker analisis belum terdeteksi aktif. Minta pengelola memeriksa dan menyalakan worker." : "Worker terdeteksi baru-baru ini. Antrean mungkin sedang menunggu proses lain; minta pengelola memeriksa bila berlanjut."}</p>
+                                <p>{health.pending_jobs > 0 ? "Job sudah tersedia. Tidak perlu mengulang analisis atau membuat antrean baru." : health.can_recover ? "Proses dapat dipulihkan pada analisis yang sama. Hasil aktivitas yang berhasil tetap disimpan." : "Progres yang tersimpan tetap aman. Hindari memulai analisis baru."}</p>
+                            </div>
+                        )}
                     </div>
-                    {active && (
+                    {processing && !health?.stalled && (
                         <span
                             className="analysis-spinner"
                             aria-label="Analisis berlangsung"
                         />
                     )}
-                    {run.can_retry && (
+                    {cancelling && <p className="analysis-cancellation-note">Anda boleh berpindah halaman. Pembatalan tetap tersimpan di server.</p>}
+                    {cancelling && run.can_finalize_cancel && <button type="button" disabled={busy} onClick={() => confirmAction("cancel")}>Periksa pembatalan</button>}
+                    {run.can_retry && !cancelling && !cancelled && (
                         <button
                             className="primary"
                             disabled={busy}
                             onClick={() => void start(true)}
                         >
-                            Coba kembali yang gagal
+                            {active ? "Pulihkan analisis" : "Coba kembali yang gagal"}
                         </button>
                     )}
                     {run.error_message && (
@@ -323,18 +381,29 @@ export default function AnalysisPage({
                     )}
                     {active && (
                         <small>
-                            Proses berjalan di server. Anda boleh berpindah
-                            halaman dan kembali untuk melihat perkembangannya.
+                            Antrean dan progres tersimpan di server. Anda boleh berpindah
+                            halaman atau memuat ulang untuk memeriksa status terbaru.
                         </small>
                     )}
                 </section>
             )}
             {!resultsView && report && run?.status === "completed" && (
                 <section className="panel analysis-completed">
-                    <div className="analysis-completed-heading"><span className="analysis-completed-icon" aria-hidden="true">?</span><div><span className="eyebrow">HASIL TERSEDIA</span><h2>Analisis selesai</h2></div><span className="analysis-completed-badge">Selesai</span></div>
-                    <h3>{dataset?.filename ?? `Dataset ${importId}`}</h3>
-                    <div className="analysis-dataset-facts"><span>Dataset {importId}</span><span>Analisis {run.id}</span><span>{run.total} aktivitas dianalisis</span></div>
-                    <div className="analysis-completed-footer"><p>Hasil tersimpan. Buka tanpa menjalankan AI lagi.</p><Link className="button primary" to={`/results?dataset=${importId}&run=${runId}`}>Lihat hasil analisis ?</Link></div>
+                    <div className="analysis-completed-content">
+                        <div className="analysis-completed-heading">
+                            <span className="analysis-completed-icon" aria-hidden="true"><Icon name="check" /></span>
+                            <div><span className="eyebrow">HASIL TERSEDIA</span><h2>Analisis selesai</h2></div>
+                        </div>
+                        <h3>{dataset?.filename ?? `Dataset ${importId}`}</h3>
+                        <div className="analysis-dataset-facts"><span>Dataset {importId}</span><span>Analisis {run.id}</span><span>{run.total} aktivitas dianalisis</span></div>
+                    </div>
+                    <div className="analysis-completed-actions">
+                        <span className="analysis-completed-badge"><Icon name="check" /> Selesai</span>
+                        <Link className="button primary" to={`/results?dataset=${importId}&run=${runId}`}>
+                            Lihat hasil analisis
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg>
+                        </Link>
+                    </div>
                 </section>
             )}
             {resultsView && report && run?.status === "completed" && (

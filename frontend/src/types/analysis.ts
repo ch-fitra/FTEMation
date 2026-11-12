@@ -72,6 +72,23 @@ export interface AnalysisRun {
     output_tokens: number;
     error_message: string | null;
     can_retry: boolean;
+    can_cancel?: boolean;
+    can_resume?: boolean;
+    can_finalize_cancel?: boolean;
+    cancellation_requested_at?: string | null;
+    cancelled_at?: string | null;
+    resumed_at?: string | null;
+    execution_version?: number;
+    lifecycle_events?: { type: string; at: string; execution_version: number; actor_id?: number }[] | null;
+    queue_health?: {
+        worker_status: "recently_seen" | "not_detected";
+        pending_jobs: number;
+        reserved_jobs: number;
+        delayed_jobs: number;
+        stalled: boolean;
+        waiting_seconds: number;
+        can_recover: boolean;
+    };
     consistency_review?: {
         group_id: string;
         message: string;

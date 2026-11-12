@@ -10,6 +10,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/imports/{import}/analyses', [AnalysisController::class, 'store'])->middleware('throttle:10,1');
     Route::get('/analyses/{run}', [AnalysisController::class, 'show']);
     Route::post('/analyses/{run}/retry', [AnalysisController::class, 'retry'])->middleware('throttle:10,1');
+    Route::post('/analyses/{run}/cancel', [AnalysisController::class, 'cancel'])->middleware('throttle:10,1');
+    Route::post('/analyses/{run}/resume', [AnalysisController::class, 'resume'])->middleware('throttle:10,1');
     Route::get('/analyses/{run}/export/{format}', [AnalysisController::class, 'export']);
     Route::get('/user', [AuthController::class, 'user']);
     Route::get('/imports', [ImportController::class, 'index']);

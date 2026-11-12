@@ -3,6 +3,8 @@
 namespace App\Jobs;
 
 use App\Models\AnalysisRun;
+use App\Services\Analysis\AnalysisCancellation;
+use App\Services\Analysis\AnalysisQueueHealth;
 use App\Services\Analysis\AnalysisRunService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -23,7 +25,13 @@ class AnalyzeWorkloadRun implements ShouldQueue
 
     public bool $failOnTimeout = true;
 
-    public function __construct(public int $runId) {}
+    // Class default keeps jobs serialized before this feature compatible with version 0.
+    public int $executionVersion = 0;
+
+    public function __construct(public int $runId, int $executionVersion = 0)
+    {
+        $this->executionVersion = $executionVersion;
+    }
 
     public function handle(AnalysisRunService $service): void
     {
@@ -35,7 +43,7 @@ class AnalyzeWorkloadRun implements ShouldQueue
         }
         try {
             $run = AnalysisRun::find($this->runId);
-            if ($run) {
+            if ($run && $run->execution_version === $this->executionVersion) {
                 $service->step($run);
             }
         } finally {
@@ -53,6 +61,12 @@ class AnalyzeWorkloadRun implements ShouldQueue
         }
         try {
             if ($run = AnalysisRun::find($this->runId)) {
+                if ($run->execution_version !== $this->executionVersion || app(AnalysisCancellation::class)->checkpoint($run)) {
+                    return;
+                }
+                if (app(AnalysisQueueHealth::class)->hasWaitingJob($run)) {
+                    return;
+                }
                 app(AnalysisRunService::class)->fail($run, 'Worker terhenti atau batas waktu terlampaui. Periksa worker/log server lalu retry.');
             }
         } finally {

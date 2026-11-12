@@ -22,14 +22,14 @@ class AnalysisRunService
 
         return DB::transaction(function () use ($import) {
             WorkloadImport::whereKey($import->id)->lockForUpdate()->firstOrFail();
-            $active = $import->analysisRuns()->whereIn('status', ['queued', 'processing'])->latest('id')->first();
+            $active = $import->analysisRuns()->whereIn('status', ['queued', 'processing', 'cancel_requested'])->latest('id')->first();
             if ($active) {
                 return $active;
             }
             $snapshot = $this->snapshot();
             $run = $import->analysisRuns()->create([
                 'model_name' => config('ftemation.ai.model'), 'prompt_version' => config('ftemation.ai.prompt_version'),
-                'config_snapshot' => $snapshot, 'status' => 'queued', 'input_tokens' => 0, 'output_tokens' => 0, 'heartbeat_at' => now(),
+                'config_snapshot' => $snapshot, 'status' => 'queued', 'execution_version' => 0, 'input_tokens' => 0, 'output_tokens' => 0, 'heartbeat_at' => now(),
             ]);
             foreach ($import->activities()->orderBy('id')->cursor() as $activity) {
                 $run->analyses()->create(['activity_id' => $activity->id, 'status' => 'pending']);
@@ -42,19 +42,31 @@ class AnalysisRunService
 
     public function retry(AnalysisRun $run): AnalysisRun
     {
-        return DB::transaction(function () use ($run) {
-            // Serialize retry with start for the same dataset.
-            WorkloadImport::whereKey($run->import_id)->lockForUpdate()->firstOrFail();
-            $run->refresh();
-            $stale = in_array($run->status, ['queued', 'processing']) && $run->heartbeat_at?->lt(now()->subMinutes(10));
-            abort_unless(in_array($run->status, ['failed', 'partial_failed']) || $stale, 409, 'Retry hanya untuk analisis gagal atau antrean yang tidak bergerak selama sepuluh menit.');
-            abort_if($run->import->analysisRuns()->whereKeyNot($run->id)->whereIn('status', ['queued', 'processing'])->exists(), 409, 'Dataset memiliki analisis lain yang sedang berjalan.');
-            $run->analyses()->whereIn('status', ['failed', 'processing'])->update(['status' => 'pending', 'error_message' => null]);
-            $run->forceFill(['status' => 'queued', 'summary_status' => 'pending', 'error_message' => null, 'completed_at' => null, 'heartbeat_at' => now()])->save();
-            $this->enqueue($run);
+        // Use the same mutex as a worker; recovery must not reset its in-flight batch.
+        $lock = Cache::lock('analysis-run:'.$run->id, 400);
+        abort_unless($lock->get(), 409, 'Worker masih memproses analisis ini. Tunggu sebelum memulihkan proses.');
+        try {
+            return DB::transaction(function () use ($run) {
+                // Serialize retry with start for the same dataset.
+                WorkloadImport::whereKey($run->import_id)->lockForUpdate()->firstOrFail();
+                $run = AnalysisRun::whereKey($run->id)->lockForUpdate()->firstOrFail();
+                if (in_array($run->status, ['queued', 'processing']) && app(AnalysisQueueHealth::class)->hasWaitingJob($run)) {
+                    // Worker startup, not another job, is required. Preserve timestamps/progress.
+                    return $run;
+                }
+                $stale = in_array($run->status, ['queued', 'processing']) && $run->heartbeat_at?->lt(now()->subMinutes(10));
+                abort_unless(in_array($run->status, ['failed', 'partial_failed']) || $stale, 409, 'Retry hanya untuk analisis gagal atau antrean yang tidak bergerak selama sepuluh menit.');
+                abort_if($stale && ! app(AnalysisQueueHealth::class)->forRun($run)['can_recover'], 409, 'Job masih dipegang worker. Tunggu sebelum memulihkan proses.');
+                abort_if($run->import->analysisRuns()->whereKeyNot($run->id)->whereIn('status', ['queued', 'processing', 'cancel_requested'])->exists(), 409, 'Dataset memiliki analisis lain yang sedang berjalan.');
+                $run->analyses()->whereIn('status', ['failed', 'processing'])->update(['status' => 'pending', 'error_message' => null]);
+                $run->forceFill(['status' => 'queued', 'execution_version' => $run->execution_version + 1, 'summary_status' => 'pending', 'error_message' => null, 'completed_at' => null, 'heartbeat_at' => now()])->save();
+                $this->enqueue($run);
 
-            return $run;
-        });
+                return $run;
+            });
+        } finally {
+            $lock->release();
+        }
     }
 
     public function snapshot(): array
@@ -76,16 +88,56 @@ class AnalysisRunService
         ]);
     }
 
+    public function resume(AnalysisRun $run, int $actorId, int $expectedVersion): AnalysisRun
+    {
+        $lock = Cache::lock('analysis-run:'.$run->id, 400);
+        abort_unless($lock->get(), 409, 'Pembatalan belum selesai. Tunggu sebelum melanjutkan analisis.');
+        try {
+            return DB::transaction(function () use ($run, $actorId, $expectedVersion) {
+                WorkloadImport::whereKey($run->import_id)->lockForUpdate()->firstOrFail();
+                $run = AnalysisRun::whereKey($run->id)->lockForUpdate()->firstOrFail();
+                // A repeated resume from another tab is a no-op, not another dispatch.
+                if (in_array($run->status, ['queued', 'processing']) && $run->resumed_at && in_array($expectedVersion, [$run->execution_version, $run->execution_version - 1], true)) {
+                    return $run;
+                }
+                abort_unless($run->execution_version === $expectedVersion, 409, 'Analisis sudah diperbarui. Muat status terbaru sebelum melanjutkan.');
+                abort_unless($run->status === 'cancelled', 409, 'Hanya analisis yang sudah dibatalkan dapat dilanjutkan.');
+                abort_if($run->import->analysisRuns()->whereKeyNot($run->id)->whereIn('status', ['queued', 'processing', 'cancel_requested'])->exists(), 409, 'Dataset memiliki analisis aktif lain.');
+                $run->analyses()->whereIn('status', ['pending', 'processing', 'failed'])->update(['status' => 'pending', 'error_message' => null]);
+                $events = $run->lifecycle_events ?? [];
+                $events[] = ['type' => 'resumed', 'at' => now()->toIso8601String(), 'actor_id' => $actorId, 'execution_version' => $run->execution_version + 1];
+                $run->forceFill(['status' => 'queued', 'execution_version' => $run->execution_version + 1, 'resumed_at' => now(), 'lifecycle_events' => $events,
+                    'summary_status' => $run->summary_status === 'completed' ? 'completed' : 'pending', 'heartbeat_at' => now(), 'error_message' => null, 'completed_at' => null])->save();
+                $this->enqueue($run);
+
+                return $run;
+            });
+        } finally {
+            $lock->release();
+        }
+    }
+
     public function step(AnalysisRun $run): void
     {
+        $cancellation = app(AnalysisCancellation::class);
+        if ($cancellation->checkpoint($run)) {
+            return;
+        }
         if (! in_array($run->status, ['queued', 'processing'])) {
             return;
         }
-        $run->forceFill(['status' => 'processing', 'started_at' => $run->started_at ?? now(), 'heartbeat_at' => now()])->save();
+        if (! $cancellation->updateActive($run, ['status' => 'processing', 'started_at' => $run->started_at ?? now(), 'heartbeat_at' => now()])) {
+            $cancellation->checkpoint($run);
+
+            return;
+        }
         $batch = $run->analyses()->whereIn('status', ['pending', 'processing'])->with('activity.employee')->orderBy('id')->limit($run->config_snapshot['batch_size'])->get();
         if ($batch->isNotEmpty()) {
             $uncached = [];
             foreach ($batch as $analysis) {
+                if ($cancellation->checkpoint($run)) {
+                    return;
+                }
                 $payload = $this->activityInput($analysis);
                 $key = 'ai:activity:'.hash('sha256', json_encode([$run->import->user_id, $run->config_snapshot['ai_fingerprint'], array_diff_key($payload, ['activity_id' => true])], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
                 $analysis->forceFill(['status' => 'processing', 'cache_key' => substr($key, -64), 'error_message' => null, 'attempts' => $analysis->attempts + 1])->save();
@@ -108,14 +160,27 @@ class AnalysisRunService
                 try {
                     $results = $this->client->json($run, $run->config_snapshot['prompts']['activity'], ['taxonomy' => $run->config_snapshot['taxonomy'], 'activities' => array_column($uncached, 'input')], fn ($data) => $this->validator->activities($data, $ids, array_column($run->config_snapshot['taxonomy'], 'code')));
                     $byId = collect($results)->keyBy('activity_id');
+                    foreach ($uncached as $item) {
+                        Cache::put($item['key'], $byId[$item['input']['activity_id']], now()->addDays(config('ftemation.ai.cache_days')));
+                    }
                     DB::transaction(function () use ($run, $uncached, $byId) {
+                        $current = AnalysisRun::whereKey($run->id)->lockForUpdate()->firstOrFail();
+                        if ($current->execution_version !== $run->execution_version) {
+                            throw new AnalysisCancelled('Respons berasal dari versi eksekusi lama; cache tetap tersedia.');
+                        }
                         foreach ($uncached as $item) {
                             $result = $byId[$item['input']['activity_id']];
                             $this->store($run, $item['analysis'], $result, false);
-                            Cache::put($item['key'], $result, now()->addDays(config('ftemation.ai.cache_days')));
                         }
                     });
+                } catch (AnalysisCancelled) {
+                    $cancellation->checkpoint($run);
+
+                    return;
                 } catch (AnalysisException $e) {
+                    if ($cancellation->checkpoint($run)) {
+                        return;
+                    }
                     foreach ($uncached as $item) {
                         $item['analysis']->forceFill(['status' => 'failed', 'error_message' => $e->getMessage()])->save();
                     }
@@ -126,17 +191,26 @@ class AnalysisRunService
                     }
                 }
             }
+            if ($cancellation->checkpoint($run)) {
+                return;
+            }
             $run->forceFill(['heartbeat_at' => now()])->save();
             $this->enqueue($run);
 
             return;
         }
         if ($run->analyses()->where('status', 'failed')->exists()) {
-            $run->forceFill(['status' => $run->analyses()->where('status', 'success')->exists() ? 'partial_failed' : 'failed', 'error_message' => 'Sebagian penilaian gagal. Periksa pesan per aktivitas lalu retry.', 'completed_at' => now()])->save();
+            $cancellation->updateActive($run, ['status' => $run->analyses()->where('status', 'success')->exists() ? 'partial_failed' : 'failed', 'error_message' => 'Sebagian penilaian gagal. Periksa pesan per aktivitas lalu retry.', 'completed_at' => now()]);
+            $cancellation->checkpoint($run);
 
             return;
         }
-        $this->summarize($run);
+        if ($run->summary_status === 'completed' && $run->summary_json) {
+            $cancellation->updateActive($run, ['status' => 'completed', 'completed_at' => now(), 'heartbeat_at' => now()]);
+            $cancellation->checkpoint($run);
+        } else {
+            $this->summarize($run);
+        }
     }
 
     private function activityInput(ActivityAnalysis $analysis): array
@@ -163,6 +237,10 @@ class AnalysisRunService
 
     private function summarize(AnalysisRun $run): void
     {
+        $cancellation = app(AnalysisCancellation::class);
+        if ($cancellation->checkpoint($run)) {
+            return;
+        }
         $rows = $this->reports->rows($run);
         abort_unless($rows->count() === $run->import->activities()->count(), 409, 'Jumlah hasil tidak sesuai dataset.');
         foreach ($rows as $row) {
@@ -189,23 +267,45 @@ class AnalysisRunService
             Cache::put($key, $result, now()->addDays(config('ftemation.ai.cache_days')));
             $snapshot = $run->config_snapshot;
             $snapshot['summary_cache_hit'] = (bool) $cached;
-            $run->forceFill(['summary_json' => $result, 'summary_status' => 'completed', 'config_snapshot' => $snapshot, 'status' => 'completed', 'error_message' => null, 'completed_at' => now(), 'heartbeat_at' => now()])->save();
+            // Retain an already returned summary even if cancellation won the status race.
+            DB::transaction(function () use ($run, $result, $snapshot) {
+                $current = AnalysisRun::whereKey($run->id)->lockForUpdate()->firstOrFail();
+                if ($current->execution_version !== $run->execution_version) {
+                    throw new AnalysisCancelled('Kesimpulan berasal dari versi eksekusi lama; cache tetap tersedia.');
+                }
+                $current->forceFill(['summary_json' => $result, 'summary_status' => 'completed', 'config_snapshot' => $snapshot])->save();
+            });
+            $cancellation->updateActive($run, ['status' => 'completed', 'error_message' => null, 'completed_at' => now(), 'heartbeat_at' => now()]);
+            $cancellation->checkpoint($run);
+        } catch (AnalysisCancelled) {
+            $cancellation->checkpoint($run);
         } catch (AnalysisException $e) {
-            $run->forceFill(['summary_status' => 'failed', 'status' => 'partial_failed', 'error_message' => $e->getMessage(), 'completed_at' => now(), 'heartbeat_at' => now()])->save();
+            $cancellation->updateActive($run, ['summary_status' => 'failed', 'status' => 'partial_failed', 'error_message' => $e->getMessage(), 'completed_at' => now(), 'heartbeat_at' => now()]);
+            $cancellation->checkpoint($run);
         }
     }
 
     public function fail(AnalysisRun $run, string $message): void
     {
-        if ($run->status === 'completed') {
-            return;
-        }
-        $run->analyses()->whereIn('status', ['pending', 'processing'])->update(['status' => 'failed', 'error_message' => $message]);
-        $run->forceFill(['status' => $run->analyses()->where('status', 'success')->exists() ? 'partial_failed' : 'failed', 'summary_status' => 'failed', 'error_message' => $message, 'heartbeat_at' => now(), 'completed_at' => now()])->save();
+        DB::transaction(function () use ($run, $message) {
+            $current = AnalysisRun::whereKey($run->id)->lockForUpdate()->firstOrFail();
+            if (! in_array($current->status, ['queued', 'processing'])) {
+                return;
+            }
+            $current->analyses()->whereIn('status', ['pending', 'processing'])->update(['status' => 'failed', 'error_message' => $message]);
+            $current->forceFill(['status' => $current->analyses()->where('status', 'success')->exists() ? 'partial_failed' : 'failed', 'summary_status' => 'failed', 'error_message' => $message, 'heartbeat_at' => now(), 'completed_at' => now()])->save();
+        });
+        app(AnalysisCancellation::class)->checkpoint($run);
     }
 
     private function enqueue(AnalysisRun $run): void
     {
-        AnalyzeWorkloadRun::dispatch($run->id)->onConnection('database')->onQueue('analysis')->afterCommit();
+        if (! in_array($run->fresh()->status, ['queued', 'processing'])) {
+            return;
+        }
+        if (app(AnalysisQueueHealth::class)->hasWaitingJob($run)) {
+            return;
+        }
+        AnalyzeWorkloadRun::dispatch($run->id, $run->execution_version)->onConnection('database')->onQueue('analysis')->afterCommit();
     }
 }

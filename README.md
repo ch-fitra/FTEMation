@@ -47,7 +47,7 @@ Buka http://localhost:5173. Vite mem-proxy `/api` dan `/sanctum` ke Laravel port
 Analisis baru memerlukan API key dan worker pada terminal terpisah:
 
 ```powershell
-php artisan queue:work database --queue=analysis --timeout=360 --tries=40
+php artisan workload:work --allow-paid
 ```
 
 **Menghentikan aplikasi:** tekan Ctrl+C pada setiap terminal server, Vite dan worker. Menutup browser tidak menghentikan server. Jika server masih berjalan, periksa PID terlebih dahulu:
@@ -222,3 +222,32 @@ Audit responsif delapan viewport (320–2560px): `node scripts/review-responsive
 Pemeriksaan Hasil AI pada Hasil analisis menampilkan kandidat `consistency_review` sebagai daftar kategori dengan jumlah aktivitas dan variasi level. Tiga kelompok ditampilkan lebih dahulu; tombol lihat semua membuka daftar lengkap. Detail kelompok menampilkan seluruh aktivitas, alasan klasifikasi, dan faktor yang tersedia dalam satu dialog. Label kategori bahasa Indonesia hanya untuk tampilan; hasil, ID kategori, serta logika backend tetap sama. Perbedaan level belum tentu kesalahan AI.
 
 Verifikasi read-only terhadap hasil tersimpan: `node scripts/review-ai-result-review.mjs`. Memerlukan server lokal, akun demo dari env, completed run dengan kandidat review, serta Playwright/Chrome seperti skrip UI lainnya. Memeriksa setiap kelompok dan alasan pada desktop 1440px serta mobile 390px/320px, dialog/keyboard/scroll, dan kesamaan respons backend sebelum/sesudah. Mutasi selain login diblokir; tidak menjalankan inference. Screenshot dan hasil pemeriksaan tersimpan di `storage/framework/testing/ai-result-review/`.
+
+
+## Diagnosis antrean analisis
+
+`composer dev` menjalankan web server saja; worker harus dijalankan terpisah. Setelah izin pemakaian saldo AI diberikan, gunakan `php artisan workload:work --allow-paid`. Perintah ini memvalidasi konfigurasi dasar dan menjalankan worker `database`, queue `analysis`, timeout 360, tries 40, sleep 2. Tanpa flag tersebut worker tidak dimulai. Worker lama perlu direstart untuk memuat kode dan pelaporan heartbeat terbaru. Jangan menjalankan worker untuk memeriksa antrean jika inference belum diizinkan.
+
+Diagnosis read-only: `php scripts/diagnose-analysis-queue.php 5`. Output hanya konfigurasi terpilih, keberadaan key/sertifikat (tanpa nilainya), metadata job, progres, ringkasan log, dan hash tabel. Tidak me-reserve job, mengubah run, atau menghubungi provider. Skrip menggunakan konfigurasi database queue yang aktif.
+
+API status menyertakan `queue_health` untuk run milik pengguna. Worker mengirim heartbeat melalui event `JobPopping` hanya untuk koneksi database dan queue analysis. Sinyal berlaku 420 detik agar worker yang sedang menunggu HTTP tidak langsung dianggap hilang. `not_detected` berarti tidak ada sinyal baru, bukan bukti pasti proses OS mati; worker sebelum pembaruan ini juga perlu direstart. Membuka halaman status tidak memulai worker atau inference.
+
+- Job masih menunggu atau reservation kedaluwarsa: worker dapat memproses job yang sama; retry tidak menambah job atau mereset heartbeat/progres.
+- Run aktif lebih dari 10 menit tanpa heartbeat dan tanpa job: pemulihan pada run yang sama tersedia. Lock yang sama dengan worker mencegah batch aktif direset. Aktivitas sukses tidak diulang.
+- Run gagal/sebagian gagal: retry hanya bagian belum berhasil. Cache, snapshot prompt/model dan hasil sukses tetap digunakan.
+- Dua job lama untuk run sama tidak dihapus manual: lock menserialisasi batch, continuation tidak ditambahkan jika ada job lain yang menunggu, dan job untuk run selesai tidak menghubungi AI.
+
+Pengujian: `php artisan test --compact`, `npm --prefix frontend run build`, `npm --prefix frontend run lint`, `node scripts/review-analysis-queue.mjs`. Tes backend menggunakan SQLite in-memory dan HTTP fake; jangan menjalankan beberapa proses PHPUnit bersamaan karena fake storage memakai direktori bersama. Browser memakai respons sintetis dan memblokir akses mutasi nyata; recovery POST hanya dipenuhi oleh fixture. Screenshot/hasil berada di `storage/framework/testing/analysis-queue/`.
+
+Lihat [diagnosis Run 5 dan batas pemulihan](docs/ANALYSIS_QUEUE_DIAGNOSIS.md).
+
+Untuk memeriksa halaman Run 5 aktual sesudah simulasi, tambahkan `--live` pada skrip browser antrean. Mode ini membaca akun demo dari env, mengizinkan POST login saja, dan memblokir seluruh mutasi analisis.
+
+
+## Batalkan dan lanjutkan Analisis AI
+
+Halaman Analisis AI menyediakan **Batalkan Analisis** untuk run queued/processing. Konfirmasi menjelaskan bahwa hasil sukses tetap tersimpan; request yang sudah diterima untuk dikirim diselesaikan pada titik aman berikutnya dan mungkin tetap memakai saldo API. Status menjadi **Menunggu pembatalan** lalu **Dibatalkan**. Run yang dibatalkan dapat **Lanjutkan Analisis** pada ID dan snapshot asli yang sama, dengan konfirmasi biaya; hanya bagian belum sukses yang diproses. Jangan mulai inference tanpa izin biaya.
+
+Migrasi additive `2026_11_12_000001_add_analysis_cancellation_metadata` diperlukan pada instalasi lain; restart worker setelah kode dan migrasi tersedia. Job lama kompatibel dengan versi 0 dan tidak dihapus manual. Endpoint cancel/resume memakai session/ownership dan `execution_version` untuk menolak aksi stale. Detail state, perlindungan race, dan batas request in-flight: [panduan pembatalan](docs/ANALYSIS_CANCELLATION.md).
+
+Tes browser tanpa inference/mutasi nyata: `node scripts/review-analysis-cancellation.mjs`. Artefak desktop/mobile berada di `storage/framework/testing/analysis-cancellation/`. Jalankan juga tes Laravel, build/lint frontend, serta skrip regresi queue/navigasi yang sudah ada.

@@ -17,8 +17,7 @@ class DeepSeekClient
         $snapshot = $run->config_snapshot;
         $last = new AnalysisException('AI belum menghasilkan respons valid.');
         for ($attempt = 1; $attempt <= config('ftemation.ai.attempts'); $attempt++) {
-            $run->forceFill(['heartbeat_at' => now()])->save();
-            $run->increment('requests_count');
+            app(AnalysisCancellation::class)->admitRequest($run);
             try {
                 $verify = config('ftemation.ai.ca_bundle') ?: true;
                 if (is_string($verify) && ! str_starts_with($verify, '/') && ! preg_match('/^[A-Za-z]:/', $verify)) {

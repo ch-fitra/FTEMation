@@ -6,6 +6,8 @@ use App\Jobs\AnalyzeWorkloadRun;
 use App\Models\User;
 use App\Models\WorkloadImport;
 use App\Services\Analysis\AiOutputValidator;
+use App\Services\Analysis\AnalysisCancellation;
+use App\Services\Analysis\AnalysisCancelled;
 use App\Services\Analysis\AnalysisException;
 use App\Services\Analysis\AnalysisExportService;
 use App\Services\Analysis\AnalysisReportService;
@@ -19,6 +21,7 @@ use Illuminate\Contracts\Queue\Job;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Queue\Events\JobPopping;
 use Illuminate\Queue\WorkerOptions;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -45,6 +48,11 @@ class AnalysisTest extends TestCase
         return WorkloadImport::firstOrFail();
     }
 
+    private function lifecyclePost($run, string $action, ?int $version = null)
+    {
+        return $this->postJson("/api/analyses/{$run->id}/{$action}", ['execution_version' => $version ?? $run->fresh()->execution_version]);
+    }
+
     private function answer(array $input): array
     {
         if (isset($input['activities'])) {
@@ -63,11 +71,14 @@ class AnalysisTest extends TestCase
         return $result;
     }
 
-    private function fakeProvider(): void
+    private function fakeProvider(?callable $during = null): void
     {
         Http::swap(new Factory);
-        Http::fake(function ($request) {
+        Http::fake(function ($request) use ($during) {
             $this->assertSame(['type' => 'disabled'], $request['thinking']);
+            if ($during) {
+                $during($request);
+            }
             $input = json_decode($request['messages'][1]['content'], true);
 
             return Http::response(['model' => 'test-fixture', 'choices' => [['finish_reason' => 'stop', 'message' => ['content' => json_encode($this->answer($input))]]], 'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 20]]);
@@ -93,6 +104,436 @@ class AnalysisTest extends TestCase
         $this->assertSame($run->id, $summary['analysis_run_id']);
         $this->assertSame($report['totals']['estimated_fte_saving'], $summary['estimated_fte_saving']);
         $this->assertSame($report['totals']['oversight_count'], $summary['oversight_count']);
+    }
+
+    public function test_queued_cancellation_is_idempotent_and_preserves_jobs_without_ai_requests(): void
+    {
+        $import = $this->dataset();
+        Http::preventStrayRequests();
+        $run = app(AnalysisRunService::class)->start($import);
+        $snapshot = $run->config_snapshot;
+        $this->lifecyclePost($run, 'cancel')->assertAccepted()->assertJsonPath('run.status', 'cancelled');
+        $this->lifecyclePost($run, 'cancel')->assertAccepted();
+        $this->getJson("/api/analyses/{$run->id}")->assertJsonPath('can_resume', true)->assertJsonPath('can_cancel', false)->assertJsonPath('can_retry', false)->assertJsonPath('status', 'cancelled');
+        (new AnalyzeWorkloadRun($run->id))->handle(app(AnalysisRunService::class));
+        (new AnalyzeWorkloadRun($run->id))->failed(new \RuntimeException('late job'));
+        $this->assertSame('cancelled', $run->refresh()->status);
+        $this->assertSame(60, $run->analyses()->where('status', 'pending')->count());
+        $this->assertSame(0, (int) $run->analyses()->sum('attempts'));
+        $this->assertSame($snapshot, $run->config_snapshot);
+        $this->assertCount(2, $run->lifecycle_events);
+        Queue::assertPushed(AnalyzeWorkloadRun::class, 1);
+        Http::assertNothingSent();
+    }
+
+    public function test_in_flight_cancellation_saves_response_tokens_cache_and_stops_before_next_batch(): void
+    {
+        $import = $this->dataset();
+        $service = app(AnalysisRunService::class);
+        $run = $service->start($import);
+        $this->fakeProvider(function () use ($run, $import) {
+            $this->lifecyclePost($run, 'cancel')->assertAccepted()->assertJsonPath('run.status', 'cancel_requested');
+            $this->lifecyclePost($run, 'resume')->assertConflict();
+            $this->postJson("/api/analyses/{$run->id}/retry")->assertConflict();
+            $this->postJson("/api/imports/{$import->id}/analyses")->assertAccepted()->assertJsonPath('run.id', $run->id);
+            $this->getJson("/api/analyses/{$run->id}")->assertJsonPath('status', 'cancel_requested')->assertJsonPath('can_resume', false);
+        });
+        (new AnalyzeWorkloadRun($run->id))->handle($service);
+        $this->assertSame('cancelled', $run->refresh()->status);
+        $this->assertSame(5, $run->analyses()->where('status', 'success')->count());
+        $this->assertSame(55, $run->analyses()->where('status', 'pending')->count());
+        $this->assertSame(1, $run->requests_count);
+        $this->assertSame(10, $run->input_tokens);
+        $this->assertSame(20, $run->output_tokens);
+        foreach ($run->analyses()->where('status', 'success')->get() as $analysis) {
+            $this->assertNotNull(Cache::get('ai:activity:'.$analysis->cache_key));
+        }
+        Http::assertSentCount(1);
+        Queue::assertPushed(AnalyzeWorkloadRun::class, 1);
+    }
+
+    public function test_partial_resume_preserves_success_and_uses_original_snapshot_without_duplicate_dispatch(): void
+    {
+        $realQueue = app('queue');
+        $import = $this->dataset();
+        $service = app(AnalysisRunService::class);
+        $run = $service->start($import);
+        $snapshot = $run->config_snapshot;
+        $this->fakeProvider(fn () => $this->lifecyclePost($run, 'cancel')->assertAccepted());
+        (new AnalyzeWorkloadRun($run->id))->handle($service);
+        $keys = ['id', 'activity_id', 'status', 'automation_level', 'reason', 'recommendation', 'factors', 'estimated_fte_saving', 'cache_key', 'cache_hit', 'attempts'];
+        $saved = $run->analyses()->where('status', 'success')->get()->map->only($keys)->all();
+        config(['ftemation.ai.prompt_version' => 'must-not-read-this-file', 'ftemation.ai.model' => 'must-not-use-this-model']);
+        Queue::swap($realQueue);
+        $this->lifecyclePost($run, 'resume')->assertAccepted()->assertJsonPath('run.id', $run->id)->assertJsonPath('run.status', 'queued');
+        $this->lifecyclePost($run, 'resume')->assertAccepted();
+        $this->assertSame(1, DB::table('jobs')->count());
+        $this->assertSame(1, $run->refresh()->execution_version);
+        $this->assertSame($snapshot, $run->config_snapshot);
+        $this->fakeProvider(function ($request) use ($snapshot) {
+            $input = json_decode($request['messages'][1]['content'], true);
+            $this->assertSame($snapshot['model'], $request['model']);
+            $this->assertSame($snapshot['prompts'][isset($input['activities']) ? 'activity' : 'summary'], $request['messages'][0]['content']);
+        });
+        $worker = app('queue.worker');
+        for ($i = 0; $i < 15 && DB::table('jobs')->exists(); $i++) {
+            $worker->runNextJob('database', 'analysis', new WorkerOptions(sleep: 0));
+        }
+        $this->assertSame('completed', $run->refresh()->status);
+        $this->assertSame($saved, $run->analyses()->whereIn('id', array_column($saved, 'id'))->get()->map->only($keys)->all());
+        $this->assertSame(13, $run->requests_count);
+        Http::assertSentCount(12);
+        $this->assertSame(['cancel_requested', 'cancelled', 'resumed'], array_column($run->lifecycle_events, 'type'));
+    }
+
+    public function test_old_duplicate_jobs_cannot_resume_after_cancellation_and_version_change(): void
+    {
+        $realQueue = app('queue');
+        $import = $this->dataset();
+        $service = app(AnalysisRunService::class);
+        Queue::swap($realQueue);
+        $run = $service->start($import);
+        $realQueue->connection('database')->pushOn('analysis', new AnalyzeWorkloadRun($run->id));
+        $this->lifecyclePost($run, 'cancel')->assertAccepted();
+        $this->lifecyclePost($run, 'resume')->assertAccepted();
+        $this->assertSame(3, DB::table('jobs')->count());
+        $this->getJson("/api/analyses/{$run->id}")->assertJsonPath('queue_health.pending_jobs', 1);
+        Http::preventStrayRequests();
+        $worker = app('queue.worker');
+        $worker->runNextJob('database', 'analysis', new WorkerOptions(sleep: 0));
+        $worker->runNextJob('database', 'analysis', new WorkerOptions(sleep: 0));
+        (new AnalyzeWorkloadRun($run->id))->failed(new \RuntimeException('old duplicate'));
+        Http::assertNothingSent();
+        $this->assertSame('queued', $run->refresh()->status);
+        $this->assertSame(0, $run->requests_count);
+        $this->fakeProvider();
+        for ($i = 0; $i < 15 && DB::table('jobs')->exists(); $i++) {
+            $worker->runNextJob('database', 'analysis', new WorkerOptions(sleep: 0));
+        }
+        $this->assertSame('completed', $run->refresh()->status);
+        $this->assertSame(60, (int) $run->analyses()->sum('attempts'));
+        Http::assertSentCount(13);
+    }
+
+    public function test_cancellation_during_failed_api_request_prevents_http_retry(): void
+    {
+        $import = $this->dataset();
+        $service = app(AnalysisRunService::class);
+        $run = $service->start($import);
+        Http::swap(new Factory);
+        Http::fake(function () use ($run) {
+            $this->lifecyclePost($run, 'cancel')->assertAccepted()->assertJsonPath('run.status', 'cancel_requested');
+
+            return Http::response([], 500);
+        });
+        (new AnalyzeWorkloadRun($run->id))->handle($service);
+        $this->assertSame('cancelled', $run->refresh()->status);
+        $this->assertSame(1, $run->requests_count);
+        $this->assertSame(0, $run->analyses()->where('status', 'failed')->count());
+        $this->assertSame(60, $run->analyses()->where('status', 'pending')->count());
+        Http::assertSentCount(1);
+    }
+
+    public function test_cancellation_during_summary_preserves_summary_and_resume_does_not_repeat_it(): void
+    {
+        $import = $this->dataset();
+        $service = app(AnalysisRunService::class);
+        $run = $service->start($import);
+        $this->fakeProvider();
+        for ($i = 0; $i < 12; $i++) {
+            $service->step($run);
+        }
+        $this->fakeProvider(fn () => $this->lifecyclePost($run, 'cancel')->assertAccepted());
+        (new AnalyzeWorkloadRun($run->id))->handle($service);
+        $this->assertSame('cancelled', $run->refresh()->status);
+        $this->assertSame('completed', $run->summary_status);
+        $summary = $run->summary_json;
+        $this->lifecyclePost($run, 'resume')->assertAccepted();
+        (new AnalyzeWorkloadRun($run->id, $run->refresh()->execution_version))->handle($service);
+        $this->assertSame('completed', $run->refresh()->status);
+        $this->assertSame($summary, $run->summary_json);
+        $this->assertSame(13, $run->requests_count);
+        Http::assertSentCount(1);
+    }
+
+    public function test_cancellation_and_resume_require_authentication_ownership_and_valid_state(): void
+    {
+        $import = $this->dataset();
+        $run = app(AnalysisRunService::class)->start($import);
+        $owner = auth()->user();
+        $this->actingAs(User::factory()->create());
+        $this->lifecyclePost($run, 'cancel')->assertNotFound();
+        $this->lifecyclePost($run, 'resume')->assertNotFound();
+        auth()->forgetGuards();
+        $this->lifecyclePost($run, 'cancel')->assertUnauthorized();
+        $this->lifecyclePost($run, 'resume')->assertUnauthorized();
+        $this->actingAs($owner);
+        $this->lifecyclePost($run, 'resume')->assertConflict();
+        $this->fakeProvider();
+        $this->finish($run);
+        $before = $run->refresh()->getAttributes();
+        $this->lifecyclePost($run, 'cancel')->assertConflict();
+        $this->lifecyclePost($run, 'resume')->assertConflict();
+        $this->assertSame($before, $run->refresh()->getAttributes());
+    }
+
+    public function test_stale_cancel_request_can_be_acknowledged_after_worker_lock_expires(): void
+    {
+        $import = $this->dataset();
+        Http::preventStrayRequests();
+        $run = app(AnalysisRunService::class)->start($import);
+        $lock = Cache::lock('analysis-run:'.$run->id, 400);
+        $lock->get();
+        $this->lifecyclePost($run, 'cancel')->assertAccepted()->assertJsonPath('run.status', 'cancel_requested');
+        $this->travel(11)->minutes();
+        $this->getJson("/api/analyses/{$run->id}")->assertJsonPath('can_finalize_cancel', true)->assertJsonPath('status', 'cancel_requested');
+        $this->lifecyclePost($run, 'cancel')->assertAccepted()->assertJsonPath('run.status', 'cancelled');
+        $this->assertSame(60, $run->analyses()->where('status', 'pending')->count());
+        Http::assertNothingSent();
+    }
+
+    public function test_stale_status_save_and_request_admission_cannot_overwrite_cancel_or_resume(): void
+    {
+        $import = $this->dataset();
+        $run = app(AnalysisRunService::class)->start($import);
+        $stale = $run->fresh();
+        $this->lifecyclePost($run, 'cancel')->assertAccepted();
+        $this->assertFalse(app(AnalysisCancellation::class)->updateActive($stale, ['status' => 'completed']));
+        $this->lifecyclePost($run, 'resume')->assertAccepted();
+        $this->assertFalse(app(AnalysisCancellation::class)->updateActive($stale, ['status' => 'failed']));
+        $this->expectException(AnalysisCancelled::class);
+        app(AnalysisCancellation::class)->admitRequest($stale);
+    }
+
+    public function test_resume_refuses_another_active_run_for_the_dataset(): void
+    {
+        $import = $this->dataset();
+        $service = app(AnalysisRunService::class);
+        $first = $service->start($import);
+        $this->lifecyclePost($first, 'cancel')->assertAccepted();
+        $second = $service->start($import);
+        $this->assertNotSame($first->id, $second->id);
+        $this->lifecyclePost($first, 'resume')->assertConflict();
+        $this->assertSame('cancelled', $first->refresh()->status);
+    }
+
+    public function test_delayed_cancel_or_resume_from_an_old_execution_cannot_change_newer_run(): void
+    {
+        $import = $this->dataset();
+        $run = app(AnalysisRunService::class)->start($import);
+        $this->lifecyclePost($run, 'cancel', 0)->assertAccepted();
+        $this->lifecyclePost($run, 'resume', 0)->assertAccepted();
+        $this->lifecyclePost($run, 'cancel', 0)->assertConflict();
+        $this->lifecyclePost($run, 'resume', 0)->assertAccepted();
+        $this->assertSame('queued', $run->refresh()->status);
+        $this->lifecyclePost($run, 'cancel', 1)->assertAccepted();
+        $this->lifecyclePost($run, 'resume', 0)->assertConflict();
+        $this->assertSame('cancelled', $run->refresh()->status);
+        Queue::assertPushed(AnalyzeWorkloadRun::class, 2);
+    }
+
+    public function test_lifecycle_requests_validate_execution_version(): void
+    {
+        $import = $this->dataset();
+        $run = app(AnalysisRunService::class)->start($import);
+        $this->postJson("/api/analyses/{$run->id}/cancel")->assertUnprocessable();
+        $this->postJson("/api/analyses/{$run->id}/resume", ['execution_version' => -1])->assertUnprocessable();
+        $this->assertSame('queued', $run->refresh()->status);
+    }
+
+    public function test_legacy_serialized_job_without_execution_version_is_safe_after_resume(): void
+    {
+        $realQueue = app('queue');
+        $import = $this->dataset();
+        $service = app(AnalysisRunService::class);
+        Queue::swap($realQueue);
+        $run = $service->start($import);
+        $class = AnalyzeWorkloadRun::class;
+        $serialized = sprintf('O:%d:"%s":1:{s:5:"runId";i:%d;}', strlen($class), $class, $run->id);
+        $legacy = unserialize($serialized); // Test fixture only; application never unserializes diagnostics.
+        $this->assertSame(0, $legacy->executionVersion);
+        $job = DB::table('jobs')->first();
+        $payload = json_decode($job->payload, true);
+        $payload['data']['command'] = $serialized;
+        DB::table('jobs')->where('id', $job->id)->update(['payload' => json_encode($payload)]);
+        $this->getJson("/api/analyses/{$run->id}")->assertJsonPath('queue_health.pending_jobs', 1);
+        $this->lifecyclePost($run, 'cancel')->assertAccepted();
+        $this->lifecyclePost($run, 'resume')->assertAccepted();
+        Http::preventStrayRequests();
+        $legacy->handle($service);
+        $legacy->failed(new \RuntimeException('legacy exhausted'));
+        $this->assertSame('queued', $run->refresh()->status);
+        Http::assertNothingSent();
+    }
+
+    public function test_worker_failure_acknowledges_pending_cancellation_without_failing_activities(): void
+    {
+        $import = $this->dataset();
+        $service = app(AnalysisRunService::class);
+        $run = $service->start($import);
+        $this->fakeProvider(function () use ($run) {
+            $this->lifecyclePost($run, 'cancel')->assertAccepted()->assertJsonPath('run.status', 'cancel_requested');
+            throw new \RuntimeException('worker exception after cancellation fixture');
+        });
+        $job = new AnalyzeWorkloadRun($run->id);
+        try {
+            $job->handle($service);
+            $this->fail('Fixture must interrupt the worker');
+        } catch (\RuntimeException $exception) {
+            $job->failed($exception);
+        }
+        $this->assertSame('cancelled', $run->refresh()->status);
+        $this->assertSame(60, $run->analyses()->where('status', 'pending')->count());
+        $this->assertSame(0, $run->analyses()->where('status', 'failed')->count());
+        $this->assertSame(1, $run->requests_count);
+    }
+
+    public function test_worker_offline_keeps_one_job_and_retry_preserves_queued_run(): void
+    {
+        $realQueue = app('queue');
+        $import = $this->dataset();
+        Http::preventStrayRequests();
+        Queue::swap($realQueue);
+        $run = app(AnalysisRunService::class)->start($import);
+        $before = $run->refresh()->getAttributes();
+        $this->travel(11)->minutes();
+        $this->getJson("/api/analyses/{$run->id}")->assertOk()
+            ->assertJsonPath('status', 'queued')->assertJsonPath('requests_count', 0)
+            ->assertJsonPath('queue_health.worker_status', 'not_detected')
+            ->assertJsonPath('queue_health.pending_jobs', 1)->assertJsonPath('queue_health.stalled', true)
+            ->assertJsonPath('can_retry', false);
+        for ($i = 0; $i < 3; $i++) {
+            $this->postJson("/api/analyses/{$run->id}/retry")->assertAccepted();
+        }
+        $this->assertSame($before, $run->refresh()->getAttributes());
+        $this->assertSame(1, DB::table('jobs')->count());
+        $this->assertSame(60, $run->analyses()->where('status', 'pending')->count());
+        Http::assertNothingSent();
+    }
+
+    public function test_queue_health_distinguishes_delayed_jobs_and_worker_heartbeats(): void
+    {
+        $realQueue = app('queue');
+        $import = $this->dataset();
+        Queue::swap($realQueue);
+        $run = app(AnalysisRunService::class)->start($import);
+        DB::table('jobs')->update(['available_at' => now()->addMinutes(5)->timestamp]);
+        event(new JobPopping('database', 'default'));
+        $this->getJson("/api/analyses/{$run->id}")->assertJsonPath('queue_health.worker_status', 'not_detected')->assertJsonPath('queue_health.delayed_jobs', 1);
+        event(new JobPopping('database', 'default,analysis'));
+        $this->getJson("/api/analyses/{$run->id}")->assertJsonPath('queue_health.worker_status', 'recently_seen');
+        $this->travel(421)->seconds();
+        $this->getJson("/api/analyses/{$run->id}")->assertJsonPath('queue_health.worker_status', 'not_detected');
+    }
+
+    public function test_stalled_recovery_cannot_reset_locked_or_reserved_batch(): void
+    {
+        $realQueue = app('queue');
+        $import = $this->dataset();
+        $run = app(AnalysisRunService::class)->start($import);
+        $run->forceFill(['status' => 'processing', 'heartbeat_at' => now()->subMinutes(11)])->save();
+        $run->analyses()->first()->update(['status' => 'processing']);
+        $lock = Cache::lock('analysis-run:'.$run->id, 400);
+        $lock->get();
+        $this->postJson("/api/analyses/{$run->id}/retry")->assertConflict();
+        $lock->release();
+        Queue::swap($realQueue);
+        $realQueue->connection('database')->pushOn('analysis', new AnalyzeWorkloadRun($run->id));
+        DB::table('jobs')->update(['reserved_at' => now()->timestamp]);
+        $this->getJson("/api/analyses/{$run->id}")->assertJsonPath('can_retry', false);
+        $this->postJson("/api/analyses/{$run->id}/retry")->assertConflict();
+        $this->assertSame(1, $run->analyses()->where('status', 'processing')->count());
+        $this->assertSame(1, DB::table('jobs')->count());
+    }
+
+    public function test_missing_job_recovery_preserves_success_and_enqueues_only_once(): void
+    {
+        $realQueue = app('queue');
+        $import = $this->dataset();
+        $this->fakeProvider();
+        $service = app(AnalysisRunService::class);
+        $run = $service->start($import);
+        $service->step($run);
+        $success = $run->analyses()->where('status', 'success')->get()->map->getAttributes()->all();
+        $run->analyses()->where('status', 'pending')->first()->update(['status' => 'processing']);
+        $this->travel(11)->minutes();
+        $this->getJson("/api/analyses/{$run->id}")->assertJsonPath('can_retry', true);
+        Queue::swap($realQueue);
+        $this->postJson("/api/analyses/{$run->id}/retry")->assertAccepted()->assertJsonPath('run.id', $run->id);
+        $this->postJson("/api/analyses/{$run->id}/retry")->assertAccepted();
+        $this->assertSame(1, DB::table('jobs')->count());
+        $this->assertSame($success, $run->analyses()->where('status', 'success')->get()->map->getAttributes()->all());
+        $this->assertSame(0, $run->analyses()->where('status', 'processing')->count());
+        $worker = app('queue.worker');
+        for ($i = 0; $i < 14 && DB::table('jobs')->exists(); $i++) {
+            $worker->runNextJob('database', 'analysis', new WorkerOptions(sleep: 0));
+        }
+        $this->assertSame('completed', $run->refresh()->status);
+        Http::assertSentCount(13);
+    }
+
+    public function test_existing_duplicate_jobs_and_expired_reservation_do_not_repeat_requests(): void
+    {
+        $realQueue = app('queue');
+        $import = $this->dataset();
+        $this->fakeProvider();
+        Queue::swap($realQueue);
+        $run = app(AnalysisRunService::class)->start($import);
+        $realQueue->connection('database')->pushOn('analysis', new AnalyzeWorkloadRun($run->id));
+        DB::table('jobs')->orderBy('id')->limit(1)->update(['reserved_at' => now()->subSeconds(421)->timestamp, 'attempts' => 1]);
+        $this->postJson("/api/analyses/{$run->id}/retry")->assertAccepted();
+        $this->assertSame(2, DB::table('jobs')->count());
+        $worker = app('queue.worker');
+        for ($i = 0; $i < 20 && DB::table('jobs')->exists(); $i++) {
+            $worker->runNextJob('database', 'analysis', new WorkerOptions(sleep: 0));
+        }
+        $this->assertSame('completed', $run->refresh()->status);
+        $this->assertSame(60, $run->analyses()->where('status', 'success')->count());
+        $this->assertSame(60, (int) $run->analyses()->sum('attempts'));
+        $this->assertSame(0, DB::table('jobs')->count());
+        Http::assertSentCount(13);
+    }
+
+    public function test_connection_timeouts_are_bounded_and_successful_results_survive_recovery(): void
+    {
+        $import = $this->dataset();
+        $this->fakeProvider();
+        $service = app(AnalysisRunService::class);
+        $run = $service->start($import);
+        $service->step($run);
+        $successIds = $run->analyses()->where('status', 'success')->pluck('id');
+        Http::swap(new Factory);
+        Http::fake(fn () => Http::failedConnection());
+        $this->finish($run);
+        $this->assertSame('partial_failed', $run->refresh()->status);
+        $this->assertSame(5, $run->analyses()->where('status', 'success')->count());
+        $this->assertSame(34, $run->requests_count);
+        $this->fakeProvider();
+        $service->retry($run);
+        $this->finish($run);
+        $this->assertSame('completed', $run->refresh()->status);
+        $this->assertSame(5, (int) $run->analyses()->whereIn('id', $successIds)->sum('attempts'));
+    }
+
+    public function test_worker_launcher_requires_explicit_cost_authorization(): void
+    {
+        $this->artisan('workload:work')->assertFailed();
+        $this->assertLessThan(400, (new AnalyzeWorkloadRun(1))->timeout);
+        $this->assertGreaterThan(400, config('queue.connections.database.retry_after'));
+        $this->assertLessThan(360, config('ftemation.ai.timeout') * config('ftemation.ai.attempts') + 3);
+    }
+
+    public function test_exhausted_duplicate_does_not_fail_run_with_another_waiting_job(): void
+    {
+        $realQueue = app('queue');
+        $import = $this->dataset();
+        Http::preventStrayRequests();
+        Queue::swap($realQueue);
+        $run = app(AnalysisRunService::class)->start($import);
+        (new AnalyzeWorkloadRun($run->id))->failed(new \RuntimeException('exhausted duplicate fixture'));
+        $this->assertSame('queued', $run->refresh()->status);
+        $this->assertSame(60, $run->analyses()->where('status', 'pending')->count());
+        Http::assertNothingSent();
     }
 
     public function test_database_worker_retries_lock_contention_without_repeating_successes(): void
