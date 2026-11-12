@@ -26,6 +26,6 @@ JSON shape, enum, ID, scope dan aturan oversight dapat diperiksa secara determin
 
 ## Reproduksi
 
-Jalankan perintah pengujian pada README. `phpunit.xml` memaksa `DB_CONNECTION=sqlite`, `DB_DATABASE=:memory:` dan DB_URL kosong. Jangan gunakan migrate:fresh atau db:wipe pada database lokal. Untuk bukti histori, simpan output `php scripts/verify-analysis-history.php` sebelum/sesudah dan bandingkan hash tabel, setiap report JSON dan berkas export tersimpan. Hasil browser berada di `storage/framework/testing/quality/browser-checks.json`; preview bukan pengganti artefak pengumpulan historis.
+Jalankan perintah pengujian pada README. `phpunit.xml` memaksa `DB_CONNECTION=sqlite`, `DB_DATABASE=:memory:` dan DB_URL kosong. Jangan gunakan migrate:fresh atau db:wipe pada database lokal. Untuk bukti histori, simpan output `php scripts/verify-analysis-history.php` sebelum/sesudah dan bandingkan hash tabel, setiap report JSON dan berkas export tersimpan.
 
-Inference v2 baru memerlukan persetujuan biaya terpisah. Bila disetujui nanti, gunakan run baru, pertahankan v1, review pasangan blind bersama ahli domain, catat prasyarat yang belum terbukti, lalu bandingkan reasoning tanpa memaksakan distribusi 29/28/33 milik Run #4.
+Inference v2 baru memerlukan persetujuan biaya terpisah. Bila disetujui nanti, gunakan run baru, pertahankan v1, review pasangan blind bersama ahli domain, catat prasyarat yang belum terbukti, lalu bandingkan reasoning tanpa memaksakan distribusi label tertentu.

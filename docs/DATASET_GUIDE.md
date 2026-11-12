@@ -7,7 +7,7 @@
    - `Evaluation`: 15 aktivitas dengan label referensi awal (5 high, 5 medium, 5 low), alasan, dan catatan evaluasi.
    - `GroupingPairs`: 16 pasangan aktivitas, 8 diharapkan tergabung dan 8 diharapkan berbeda.
    - `GroupTaxonomy`: 20 kategori referensi untuk semantic grouping.
-3. `FTEMation_Dataset_Guide.md` — dokumen ini.
+3. `DATASET_GUIDE.md` — dokumen ini.
 
 ## Konteks data
 

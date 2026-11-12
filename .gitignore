@@ -27,3 +27,14 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Temporary editor files and local QA artifacts
+*.bak
+*.orig
+*.rej
+*.swp
+*.swo
+*~
+/coverage/
+/playwright-report/
+/test-results/

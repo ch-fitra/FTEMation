@@ -46,3 +46,8 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local editor settings and screenshot QA output
+.vscode/
+/test/failures/
+/integration_test/screenshots/

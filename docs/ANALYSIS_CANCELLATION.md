@@ -1,6 +1,6 @@
 # Pembatalan dan resume Analisis AI
 
-Implementasi 12 November 2026. Fitur tetap memakai Laravel, session Sanctum/CSRF, REST JSON, React, dan CSS biasa. Tidak ada tabel domain tambahan.
+Fitur tetap memakai Laravel, session Sanctum/CSRF, REST JSON, React, dan CSS biasa. Tidak ada tabel domain tambahan.
 
 ## Perilaku pengguna
 
@@ -21,7 +21,7 @@ Keduanya memerlukan session autentikasi, kepemilikan run, CSRF pada SPA, rate li
 
 State normal: `queued/processing → cancel_requested → cancelled → queued (versi berikutnya) → processing → completed`. Run `completed` tidak dapat dibatalkan/dilanjutkan. Start/retry tidak melewati state pembatalan; `cancel_requested` juga memblokir run aktif lain untuk dataset sama. Resume ditolak jika dataset mempunyai run aktif lain. Permintaan berulang pada eksekusi yang sama bersifat idempotent dan tidak menambah dispatch.
 
-Migrasi `2026_11_12_000001_add_analysis_cancellation_metadata` menambahkan `execution_version` (default 0), tiga timestamp, dan `lifecycle_events` nullable pada `analysis_runs`. Snapshot historis tidak ditulis ulang. Migrasi sudah diterapkan pada database lokal yang diverifikasi bernama `ftemation`. Semua field historis serta tabel hasil/jobs/failed_jobs memiliki hash yang sama sebelum/sesudah migrasi; field metadata baru dikecualikan dalam perbandingan legacy.
+Migrasi `2026_11_12_000001_add_analysis_cancellation_metadata` menambahkan `execution_version` (default 0), tiga timestamp, dan `lifecycle_events` nullable pada `analysis_runs`. Snapshot historis tidak ditulis ulang. Verifikasi status migration pada database tujuan sebelum pembaruan.
 
 ## Perlindungan konkurensi
 
@@ -33,20 +33,12 @@ Migrasi `2026_11_12_000001_add_analysis_cancellation_metadata` menambahkan `exec
 6. Payload versi pada cancel/resume menolak permintaan terlambat dari eksekusi sebelumnya. Penyimpanan hasil/kesimpulan juga diperiksa versinya; response stale tidak menimpa hasil versi baru dan cache valid tetap tersedia.
 7. Polling UI mengabaikan response lama yang dimulai sebelum aksi lifecycle. Error aksi tetap berada dalam dialog, terpisah dari error polling.
 
-Tidak ada perubahan angka timeout sebelumnya: HTTP maksimal 3 × 90 detik, job 360, mutex 400, retry_after 420. Worker harus memuat kode terbaru sesudah pembaruan. Worker lokal sengaja tidak dinyalakan selama implementasi ini.
+Tidak ada perubahan angka timeout sebelumnya: HTTP maksimal 3 × 90 detik, job 360, mutex 400, retry_after 420. Worker harus memuat kode terbaru sesudah pembaruan.
 
 ## Pengujian dan batasan
-
-Hasil akhir: **94 tes Laravel lolos (3040 assertions)**, build/lint React dan Pint lolos. Pengujian browser pembatalan, regresi antrean, dan navigasi semuanya lolos.
-
-Pengujian backend memakai SQLite in-memory dan fake HTTP: queued cancellation, pembatalan di callback request, retry HTTP setelah pembatalan, pelestarian usage/cache, resume parsial, reuse snapshot asli ketika konfigurasi aktif berubah, summary in-flight, konkurensi terurut, stale API/worker, job duplikat/legacy, auth/ownership, konflik run lain, serta acknowledgement setelah worker gagal/lock kedaluwarsa. Tes queue/cache/stalled yang sudah ada tetap dijalankan.
-
-Browser `node scripts/review-analysis-cancellation.mjs` menggunakan API sintetis dan memenuhi POST cancel/resume di fixture, tanpa meneruskan mutasi ke Laravel/provider. Desktop 1440px dan mobile 390px/320px diperiksa untuk dialog, fokus/Escape, status, progres/token, konflik server, resume dengan konfirmasi biaya, refresh, navigasi, dan overflow. Screenshot dan JSON hasil ada di `storage/framework/testing/analysis-cancellation/`. Regresi `review-analysis-queue.mjs` dan `review-analysis-navigation.mjs` juga dijalankan.
 
 Request DeepSeek yang sudah diterima untuk dikirim tidak dapat ditarik kembali oleh fitur ini dan mungkin tetap dikenai biaya. Usage hanya dapat dicatat bila provider mengembalikannya. Cancel tidak memberikan refund dan tidak menghapus metadata biaya. Kematian proses setelah request diterima provider tetapi sebelum hasil disimpan tetap merupakan kondisi ambigu; exactly-once lintas database/provider tidak dijamin. Sebelum pemulihan setelah crash/timeout yang ambigu, pengelola perlu memeriksa worker/log dan kemungkinan request masih berjalan. Windows lokal tanpa PCNTL tidak menyediakan jaminan hard timeout; worker Linux/PCNTL disarankan untuk operasi permanen. Tes SQLite memverifikasi interleaving deterministik, bukan stress test banyak proses MySQL secara bersamaan.
 
 Jika worker mati saat `cancel_requested`, job berikutnya atau callback failure akan mengakui pembatalan. Setelah 10 menit UI juga menyediakan **Periksa pembatalan**, yang mengulang acknowledgement melalui endpoint sama tanpa inference; mutex harus sudah bebas. Jangan melanjutkan secara manual sebelum memeriksa proses worker yang mungkin masih hidup melampaui lease.
-
-Run 5 aktual tidak dibatalkan, dilanjutkan, atau diproses saat implementasi. Tidak ada inference berbayar, perubahan prompt/FTE, reset database, penghapusan hasil/job, commit, atau push. Referensi historis `../FTEMation-Archive-2026-11-11/docs` dan `references` tidak tersedia; direktori arsip yang ditemukan hanya memuat `submission`. Requirement eksplisit pengguna dan kode aktif dipakai sebagai dasar fitur ini.
 
 Referensi penguncian: [Laravel 13 Query Builder](https://laravel.com/docs/13.x/queries#pessimistic-locking); dispatch setelah commit: [Laravel Queues](https://laravel.com/docs/13.x/queues#jobs-and-database-transactions).

@@ -1,6 +1,6 @@
-﻿# FTEMation UI design
+# FTEMation UI design
 
-Panduan aktif, 11 November 2026. Dokumen ini mendeskripsikan implementasi saat ini; bukan pengganti catatan audit historis.
+Panduan aktif, 11 November 2026. Dokumen ini mendeskripsikan implementasi saat ini.
 
 ## Arah visual
 
@@ -21,7 +21,7 @@ Hierarki: judul workspace H1, judul halaman/bagian H2, aktivitas H3, label/capti
 
 ## Konteks dan data
 
-Dataset terlihat di seluruh halaman, termasuk nama file, ID, jumlah aktivitas/karyawan/departemen dan completed run. Status terbaru dapat berbeda dari run sumber KPI; kedua konteks ditampilkan terpisah. URL detail: `/analysis?dataset=<id>&run=<id>&activity=<code>`. Run harus memiliki `import_id` yang cocok. Sidebar mempertahankan parameter dataset. Respons async lama diabaikan; summary disimpan bersama identitas dataset.
+Dataset terlihat di seluruh halaman, termasuk nama file, ID, jumlah aktivitas/karyawan/departemen dan completed run. Status terbaru dapat berbeda dari run sumber KPI; kedua konteks ditampilkan terpisah. URL detail: `/results?dataset=<id>&run=<id>&activity=<code>`. Run harus memiliki `import_id` yang cocok. Sidebar mempertahankan parameter dataset. Respons async lama diabaikan; summary disimpan bersama identitas dataset.
 
 Ringkasan API menambahkan `top_opportunities`, `oversight_count`, dan `analysis_model`; field lama tetap tersedia. Endpoint template Sanctum menghasilkan tepat satu sheet Workload dan sembilan header menggunakan konstanta importer. Tidak ada preview isi workbook sebelum import.
 

@@ -1,6 +1,6 @@
 # Metodologi FTEMation
 
-Dokumen ini menjelaskan implementasi aktif setelah penyempurnaan 11 November 2026. Dokumen metodologi historis yang diminta tidak ditemukan pada proyek maupun lokasi arsip yang tercantum README; ini bukan salinan arsip.
+Dokumen ini menjelaskan perhitungan dan kebijakan penilaian pada implementasi FTEMation.
 
 ## Angka deterministik
 

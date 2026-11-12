@@ -6,7 +6,7 @@ Bangun FTEMation untuk assessment AI Insight Workload Assessment Tancorp: Larave
 ## Baca sebelum coding
 1. `README.md` — instalasi, peta kode, metodologi, worker dan pengujian.
 2. Workbook di `samples/` — input referensi dan fixture evaluasi untuk tes.
-3. Untuk perubahan requirement/domain, baca sumber assessment dan spesifikasi yang diarsipkan di `../FTEMation-Archive-2026-11-11/references/` dan `../FTEMation-Archive-2026-11-11/docs/`. TECH_STACK_DECISIONS_v1.1.md mengesampingkan keputusan stack usang. Jangan menyalin kembali arsip/laporan ke root proyek tanpa kebutuhan.
+3. Untuk perubahan requirement/domain, baca sumber assessment di docs/references/ dan spesifikasi di docs/; dokumen historis dapat tersedia di `../FTEMation-Archive-2026-11-11/references/` dan `../FTEMation-Archive-2026-11-11/docs/`. TECH_STACK_DECISIONS_v1.1.md mengesampingkan keputusan stack usang. Jangan menyalin kembali arsip/laporan ke root proyek tanpa kebutuhan.
 
 ## Aturan wajib
 - Gunakan Laravel 13, React+TypeScript+Vite, React Router, REST JSON API+Axios, dan **CSS biasa**. Tidak Inertia, Tailwind, Mantine, Bootstrap, CSS Modules, Redux, microservices.
@@ -22,7 +22,7 @@ Bangun FTEMation untuk assessment AI Insight Workload Assessment Tancorp: Larave
 - P0 sebelum fitur dekoratif, Flutter, deployment rumit, atau What-If.
 
 ## Cara bekerja
-- Baca `README.md` untuk peta kode, alur menjalankan program dan pengujian. Dokumen historis berada di arsip luar proyek.
+- Baca `README.md` untuk peta kode, alur menjalankan program dan pengujian. Spesifikasi aktif berada di docs/; laporan historis tidak diperlukan untuk menjalankan aplikasi.
 - Frontend: `src/app` untuk bootstrap/navigasi, `pages` untuk halaman, `layouts` untuk kerangka/header/sidebar, `components` untuk komponen bersama, `hooks` untuk state sesi/dataset, `lib` untuk HTTP/format, `types` untuk kontrak API, dan `styles` untuk CSS biasa.
 - Business logic workload ada di `app/Services/Workload/`; controller dan Form Request tetap mengikuti struktur standar Laravel. Perbarui namespace dan tes ketika memindahkan class.
 - Jangan membuat salinan starter kit, file `old`/`backup`/`copy`, atau implementasi kedua dari fitur yang sama. Simpan workbook fixture di `samples/`; laporan historis dan artefak pengumpulan berada di arsip luar proyek.
