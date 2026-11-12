@@ -1,6 +1,6 @@
 # FTEMation Mobile
 
-Client Flutter Android untuk REST API Laravel yang sama dengan React. Workload, FTE, saving, klasifikasi AI dan export berasal dari backend. Tidak ada fallback demo saat jaringan gagal; fixture hanya digunakan oleh tes terisolasi.
+Client Flutter Android untuk REST API Laravel yang sama dengan React. Workload, FTE, saving, klasifikasi AI dan export berasal dari backend. Tidak ada fallback demo saat jaringan gagal.
 
 ## Prasyarat dan konfigurasi
 
@@ -74,24 +74,8 @@ Polling hanya pada halaman Analisis untuk queued/processing/cancel_requested; be
 | lib/features/overview/, activities/ | KPI server, daftar/filter/detail |
 | lib/features/analysis/ | RunState, lifecycle dan polling |
 | lib/features/results/, help/ | Hasil/export dan panduan |
-| test/, test/support/ | Regresi API/widget dan fake backend |
-| integration_test/, test_driver/ | Perjalanan Android terisolasi dan driver |
 
 Alur: UI -> ChangeNotifier/Provider -> repository -> Dio -> Laravel. Tidak ada database kedua atau perhitungan ulang FTE/AI di Flutter. file_picker 13 memakai List<PlatformFile>, length(), readAsBytes() dan saveFile(bytes, mimeType).
-
-## Pengujian
-
-Dari mobile:
-
-```powershell
-flutter analyze
-flutter test
-flutter drive --driver=test_driver/integration_test.dart --target=integration_test/device_test.dart -d DEVICE_ID
-```
-
-Unit/widget memakai fake Dio adapter dan MemoryTokens; tidak mengakses server/database/provider. Test perangkat memakai fake API dan secure storage pada key pengujian terpisah untuk login, restore sesi dan logout; bukan bukti login akun nyata. Opsional CHECK_LOCAL_BACKEND=true dengan API_BASE_URL yang sesuai memeriksa GET /api/user guest=401 tanpa mutasi backend. Jangan mengirim start/retry/resume ke backend nyata tanpa izin biaya.
-
-Regresi backend, build/lint React dan smoke HTTP dijelaskan di README utama. Jangan menaruh kredensial dalam build Flutter.
 
 ## Troubleshooting dan batas release
 
@@ -104,4 +88,4 @@ Regresi backend, build/lint React dan smoke HTTP dijelaskan di README utama. Jan
 - SDK Platform 35 atau CMake belum tersedia: instal melalui Android SDK Manager resmi. Jangan mematikan TLS atau mengedit cache package.
 - Windows lintas drive dapat bermasalah dengan cache Kotlin; kotlin.incremental=false dibatasi pada konfigurasi proyek.
 
-Kesiapan production belum dinyatakan. Verifikasi lanjutan meliputi kesetaraan React/Android pada dataset/run nyata, cold restore akun setelah proses OS mati, offline/reconnect, picker upload dan simpan export native pada server terisolasi, TalkBack/accessibility, lintas perangkat, performa report besar, signing, HTTPS dan backup/recovery. Fixture terisolasi tidak membuktikan alur akun nyata atau akurasi AI.
+Kesiapan production belum dinyatakan. Verifikasi lanjutan meliputi kesetaraan React/Android pada dataset/run nyata, cold restore akun setelah proses OS mati, offline/reconnect, picker upload dan simpan export native pada server terisolasi, TalkBack/accessibility, lintas perangkat, performa report besar, signing, HTTPS dan backup/recovery. Build lokal tidak membuktikan seluruh alur perangkat nyata atau akurasi AI.

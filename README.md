@@ -15,20 +15,18 @@ Laravel 13 / PHP 8.4, MySQL/MariaDB, database queue/cache, Sanctum, PhpSpreadshe
 | `app/Services/Analysis/`, `app/Jobs/` | Provider AI, validator, cache, queue dan export |
 | `database/` | Migration, seeder dan taksonomi runtime |
 | `frontend/src/` | App, pages, layouts, components, hooks, lib, types dan styles |
-| `mobile/` | Client Flutter Android dan regresi |
+| `mobile/` | Client Flutter Android |
 | `resources/prompts/` | Prompt aktivitas/kesimpulan berversi |
 | `resources/views/reports/` | Template PDF |
-| `samples/` | Dataset studi kasus dan workbook evaluasi untuk regresi |
-| `tests/` | Unit, feature, keamanan dan integritas analisis |
-| `scripts/` | Smoke HTTP dan diagnosis read-only |
-| `docs/` | Metodologi, kontrak lifecycle, desain dan spesifikasi |
+| `samples/` | Dataset dan rubrik evaluasi studi kasus |
+| `docs/` | ERD, spesifikasi dan sumber studi kasus |
 | `storage/` | Upload/export privat, sertifikat, cache, session dan log runtime |
 
 Tujuh tabel domain: users, imports, employees, activities, analysis_runs, activity_groups dan activity_analyses. Tabel infrastruktur Laravel/Sanctum diperbolehkan di luar tujuh tabel tersebut.
 
 ## Instalasi
 
-Prasyarat: PHP 8.4, Composer, Node.js/npm dan database MySQL/MariaDB khusus aplikasi. Ekstensi PHP: pdo_mysql, pdo_sqlite untuk tes, fileinfo, xml/dom/simplexml/xmlreader/xmlwriter, zip, gd, iconv, curl, openssl, mbstring dan bcmath. Versi dikunci dalam composer.lock, frontend/package-lock.json dan mobile/pubspec.lock.
+Prasyarat: PHP 8.4, Composer, Node.js/npm dan database MySQL/MariaDB khusus aplikasi. Ekstensi PHP: pdo_mysql, fileinfo, xml/dom/simplexml/xmlreader/xmlwriter, zip, gd, iconv, curl, openssl, mbstring dan bcmath. Versi dikunci dalam composer.lock, frontend/package-lock.json dan mobile/pubspec.lock.
 
 ```powershell
 composer install
@@ -81,7 +79,7 @@ activity_id, employee_id, employee_name, department, activity_name, description,
 
 Nilai wajib terisi; ID aktivitas unik per import; identitas karyawan konsisten; frekuensi daily/weekly/monthly; volume dan durasi positif. Formula ditolak, error dilaporkan per baris. Import memakai transaksi dan penyimpanan privat. Template tersedia di endpoint privat /api/import-template.
 
-Dataset sintetis referensi berisi 60 aktivitas, 12 karyawan dan 3 departemen. Workbook evaluasi terpisah merupakan fixture/rubrik, bukan jawaban yang dikirim ke model.
+Dataset sintetis referensi berisi 60 aktivitas, 12 karyawan dan 3 departemen. Workbook evaluasi terpisah merupakan rubrik studi kasus, bukan jawaban yang dikirim ke model.
 
 ## Perhitungan dan AI
 
@@ -110,27 +108,7 @@ php artisan workload:analyze <import-id>
 php artisan workload:export <completed-run-id>
 ```
 
-Analyze mengantrekan pekerjaan berbayar. Export menulis JSON/XLSX/PDF di storage/app/private/exports/run-<id>/. Jangan mengganti hasil historis dengan fixture.
-
-## Pengujian dan diagnosis
-
-Perintah berikut tersedia untuk developer; tidak otomatis dijalankan saat setup:
-
-```powershell
-php artisan test --compact
-php vendor/bin/pint --test
-composer validate --no-check-publish
-composer check-platform-reqs
-npm --prefix frontend run build
-npm --prefix frontend run lint
-node scripts/smoke-http.mjs
-php scripts/diagnose-analysis-queue.php <run-id>
-php scripts/verify-analysis-history.php
-```
-
-PHPUnit dipaksa SQLite in-memory melalui phpunit.xml dengan fakes AI. Tes mencakup auth/ownership, import/export, FTE, cache/snapshot, queue, retry, cancel/resume dan integritas hasil. Jangan menjalankan PHPUnit paralel karena fake storage memakai direktori bersama.
-
-Smoke HTTP memerlukan server dan kredensial SMOKE_USERNAME/SMOKE_PASSWORD atau akun demo dari env; tanpa --import tidak menambah dataset. Skrip PHP diagnosis hanya membaca metadata/hash tanpa memulai worker/provider. Output diagnosis dapat memuat metadata internal; jangan dipublikasikan sembarangan.
+Analyze mengantrekan pekerjaan berbayar. Export menulis JSON/XLSX/PDF di storage/app/private/exports/run-<id>/. Pertahankan hasil historis dan snapshot aslinya.
 
 ## Troubleshooting antrean
 
@@ -148,6 +126,16 @@ Deployment memakai HTTPS, satu origin, document root public/, APP_ENV=production
 
 Akun plaintext legacy ditingkatkan menjadi hash setelah login web sah; mobile menolak akun plaintext. Rotasi akun legacy dilakukan secara terkontrol. Simpan secret di .env backend, bukan variabel VITE_, Git, URL atau log. Upload/export privat dan endpoint dilindungi autentikasi/ownership. Teks Excel diekspor sebagai literal untuk mencegah formula injection.
 
-Kelola worker dengan process manager, restart setelah deploy, pastikan storage/bootstrap cache writable, pantau failed jobs/kapasitas disk dan rotasi log. Hosting target, HTTPS, pemulihan proses, backup/recovery dan skala dataset nyata memerlukan verifikasi deployment. Hasil fixture atau build lokal belum membuktikan kesiapan production.
+Kelola worker dengan process manager, restart setelah deploy, pastikan storage/bootstrap cache writable, pantau failed jobs/kapasitas disk dan rotasi log. Hosting target, HTTPS, pemulihan proses, backup/recovery dan skala dataset nyata memerlukan verifikasi deployment. Build lokal belum membuktikan kesiapan production.
 
-Dokumentasi: [metodologi](docs/METHODOLOGY.md), [verifikasi AI](docs/AI_VERIFICATION.md), [cancel/resume dan kontrak API](docs/ANALYSIS_CANCELLATION.md), [desain web](docs/UI_DESIGN.md), [panduan dataset](docs/DATASET_GUIDE.md), [ERD](docs/ERD_v1.mmd), [PRD assessment](docs/PRD_v1.1.md) dan [keputusan stack](docs/TECH_STACK_DECISIONS_v1.1.md). PRD/ERD awal merupakan referensi assessment; migration dan kontrak aktif menjelaskan tambahan lifecycle/mobile. Sumber studi kasus dipertahankan di docs/references/.
+## Pemeliharaan
+
+Pertahankan Laravel di root, React SPA di frontend/ dan Flutter Android di mobile/. Frontend memakai src/app untuk bootstrap/navigasi, pages, layouts, components, hooks, lib, types dan styles. Gunakan REST JSON, Axios dan CSS biasa. Business logic workload berada di app/Services/Workload/; orkestrasi AI di app/Services/Analysis/. Angka FTE/saving dihitung Laravel, bukan client atau model AI.
+
+Lifecycle analisis: queued/processing -> cancel_requested -> cancelled -> queued saat resume -> completed. POST /api/analyses/{run}/cancel dan /resume membawa execution_version dari status server; versi/state stale menghasilkan 409. Ownership tetap berlaku. Hasil sukses, snapshot, usage dan cache dipertahankan saat resume. Setelah pembatalan tanpa heartbeat selama 10 menit, UI dapat meminta acknowledgement ulang; periksa worker yang mungkin masih hidup sebelum pemulihan manual.
+
+High berarti mayoritas langkah dapat diotomasi, Medium sebagian langkah dengan review/exception signifikan, dan Low berupa bantuan untuk judgment manusia. Boolean oversight perlu dibaca bersama catatan: false bukan jaminan tanpa kontrol manusia. Keputusan berisiko tetap di tangan manusia. Kandidat review beda level tidak mendeteksi semua inkonsistensi atau halusinasi.
+
+Paket source ini tidak menyertakan suite pengujian atau skrip QA. Dependency pengembangan tetap dikunci untuk kompatibilitas instalasi dan pemeliharaan; Composer juga menyediakan Pint, sedangkan React/Flutter memiliki konfigurasi lint masing-masing. Perubahan autentikasi, ownership, queue, lifecycle dan perhitungan memerlukan verifikasi regresi sebelum deployment.
+
+Dokumentasi studi kasus: [panduan dataset](docs/DATASET_GUIDE.md), [ERD](docs/ERD_v1.mmd), [PRD assessment](docs/PRD_v1.1.md), [keputusan stack](docs/TECH_STACK_DECISIONS_v1.1.md), dan [sumber assessment](<docs/references/Studi Kasus AI Insight.pdf>). PRD/ERD awal merupakan referensi assessment; migration dan kode aktif mencakup tambahan lifecycle/mobile.
