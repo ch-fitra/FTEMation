@@ -1,6 +1,6 @@
 import Select from "../components/Select";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import EmptyState from "../components/EmptyState";
 import ErrorAlert from "../components/ErrorAlert";
 import Pagination from "../components/Pagination";
 import WorkspacePlaceholder from "../components/WorkspacePlaceholder";
@@ -52,10 +52,11 @@ export default function ActivitiesPage({
     }, [importId, search, department, frequency, page]);
     if (!importId)
         return (
-            <div className="panel empty">
-                <h2>Belum ada dataset aktif</h2>
-                <Link to="/imports">Import dataset →</Link>
-            </div>
+            <EmptyState
+                icon="activities"
+                title="Belum ada dataset aktif"
+                description="Data aktivitas akan ditampilkan setelah Anda mengimpor dan memilih dataset melalui halaman Import Dataset."
+            />
         );
     if (!result && loading) return <WorkspacePlaceholder page="/activities" />;
     return (

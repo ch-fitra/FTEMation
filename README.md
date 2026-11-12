@@ -1,141 +1,222 @@
 # FTEMation
 
-FTEMation adalah aplikasi assessment workload untuk studi kasus AI Insight Tancorp. Laravel menghitung FTE, estimasi saving, prioritas dan agregasi secara deterministik; DeepSeek menilai teks aktivitas. React menyediakan workspace web dan Flutter menyediakan client Android dengan REST API yang sama.
+FTEMation membantu menganalisis beban kerja dan menemukan peluang otomatisasi. Pengguna mengimpor data aktivitas dari Excel, melihat beban kerja dalam satuan FTE, lalu menjalankan analisis AI untuk memperoleh rekomendasi.
 
-Fitur: import Excel, pemilihan dataset, dashboard, grouping lintas departemen, riwayat analisis, retry, cancel/resume dan export JSON/Excel/PDF. Saving adalah estimasi kapasitas waktu, bukan realisasi efisiensi atau dasar otomatis pengurangan pegawai.
+FTE (*Full-Time Equivalent*) adalah ukuran beban kerja dibandingkan kapasitas kerja satu orang. Estimasi penghematan dalam aplikasi menunjukkan kapasitas waktu yang berpotensi dihemat, bukan pengurangan jumlah karyawan.
 
-## Stack dan struktur
+## Fitur utama
 
-Laravel 13 / PHP 8.4, MySQL/MariaDB, database queue/cache, Sanctum, PhpSpreadsheet dan DomPDF. Frontend memakai React, TypeScript, Vite, React Router, Axios dan CSS biasa. Android memakai Flutter/Dart, Dio, Provider, go_router dan secure storage.
+- Impor dan pilih dataset Excel.
+- Lihat ringkasan beban kerja per aktivitas, karyawan, dan departemen.
+- Analisis peluang otomatisasi dengan AI, termasuk prioritas dan kebutuhan pengawasan manusia.
+- Pantau riwayat analisis, coba ulang proses yang gagal, serta batalkan atau lanjutkan analisis.
+- Unduh hasil analisis yang selesai dalam format Excel, PDF, atau JSON.
+- Akses melalui web atau aplikasi Android.
 
-| Direktori | Fungsi |
-|---|---|
-| `app/Http/`, `routes/` | REST API, autentikasi dan validasi request |
-| `app/Services/Workload/` | Import, validasi workbook dan FTE |
-| `app/Services/Analysis/`, `app/Jobs/` | Provider AI, validator, cache, queue dan export |
-| `database/` | Migration, seeder dan taksonomi runtime |
-| `frontend/src/` | App, pages, layouts, components, hooks, lib, types dan styles |
-| `mobile/` | Client Flutter Android |
-| `resources/prompts/` | Prompt aktivitas/kesimpulan berversi |
-| `resources/views/reports/` | Template PDF |
-| `samples/` | Dataset dan rubrik evaluasi studi kasus |
-| `docs/` | ERD, spesifikasi dan sumber studi kasus |
-| `storage/` | Upload/export privat, sertifikat, cache, session dan log runtime |
+## Teknologi
 
-Tujuh tabel domain: users, imports, employees, activities, analysis_runs, activity_groups dan activity_analyses. Tabel infrastruktur Laravel/Sanctum diperbolehkan di luar tujuh tabel tersebut.
+| Bagian | Teknologi |
+| --- | --- |
+| Backend dan API | Laravel 13, PHP 8.4, Sanctum |
+| Database | MySQL atau MariaDB |
+| Web | React, TypeScript, Vite |
+| Android | Flutter dan Dart |
+| Analisis AI | DeepSeek |
+| Pengolahan file | PhpSpreadsheet dan DomPDF |
 
-## Instalasi
+Laravel menghitung FTE, estimasi penghematan, dan skor prioritas. AI menilai isi aktivitas dan memberikan rekomendasi. Web dan Android menggunakan API yang sama.
 
-Prasyarat: PHP 8.4, Composer, Node.js/npm dan database MySQL/MariaDB khusus aplikasi. Ekstensi PHP: pdo_mysql, fileinfo, xml/dom/simplexml/xmlreader/xmlwriter, zip, gd, iconv, curl, openssl, mbstring dan bcmath. Versi dikunci dalam composer.lock, frontend/package-lock.json dan mobile/pubspec.lock.
+## Menjalankan aplikasi secara lokal
+
+### 1. Siapkan kebutuhan
+
+Instal PHP 8.4, Composer, Node.js beserta npm, dan MySQL atau MariaDB. Buat database khusus aplikasi, misalnya `ftemation`.
+
+Ekstensi PHP yang diperlukan: `pdo_mysql`, `fileinfo`, `xml`, `dom`, `simplexml`, `xmlreader`, `xmlwriter`, `zip`, `gd`, `iconv`, `curl`, `openssl`, `mbstring`, dan `bcmath`.
+
+Semua perintah berikut dijalankan dari direktori utama proyek menggunakan PowerShell.
+
+### 2. Instal dependensi dan siapkan konfigurasi
 
 ```powershell
 composer install
 if (-not (Test-Path -LiteralPath .env)) {
     Copy-Item -LiteralPath .env.example -Destination .env
 }
+npm --prefix frontend ci
 ```
 
-Isi koneksi database, akun demo dan konfigurasi AI di .env. Buat database khusus aplikasi terlebih dahulu. Perintah berikut ditujukan untuk instalasi baru; jangan mengganti APP_KEY pada instalasi existing. Verifikasi target koneksi dan backup sebelum migration pada database berisi data.
+Buka `.env`, lalu isi pengaturan berikut:
+
+| Pengaturan | Keterangan |
+| --- | --- |
+| `DB_HOST`, `DB_PORT` | Alamat dan port database |
+| `DB_DATABASE` | Nama database yang sudah dibuat |
+| `DB_USERNAME`, `DB_PASSWORD` | Akun untuk mengakses database |
+| `DEMO_USERNAME`, `DEMO_NAME`, `DEMO_EMAIL`, `DEMO_PASSWORD` | Akun awal yang dibuat oleh seeder; isi password sebelum menjalankan seeder |
+| `DEEPSEEK_API_KEY` | Kunci API untuk menjalankan analisis AI |
+
+Pengaturan AI lainnya tersedia di `.env.example`. Kunci API disimpan hanya di backend dan tidak dimasukkan ke kode frontend atau Git.
+
+### 3. Siapkan database
+
+Untuk **instalasi baru**, jalankan:
 
 ```powershell
 php artisan key:generate
 php artisan ftemation:check-database
 php artisan migrate
 php artisan db:seed
-npm --prefix frontend ci
+```
+
+Pada instalasi yang sudah digunakan, pertahankan `APP_KEY` yang ada. Periksa koneksi dan cadangkan database sebelum menjalankan migrasi. Seeder tidak mengganti password akun yang sudah ada. Hindari perintah yang menghapus seluruh isi database, seperti `migrate:fresh` atau `db:wipe`.
+
+### 4. Jalankan web
+
+```powershell
 npm --prefix frontend run build
 composer dev
 ```
 
-Seeder memakai DEMO_USERNAME, DEMO_NAME, DEMO_EMAIL dan DEMO_PASSWORD; tidak mengganti password akun existing. Ganti password demo sebelum publikasi. Jangan memakai migrate:fresh, db:wipe, DROP atau TRUNCATE pada database pengguna.
+Buka [http://localhost:8000](http://localhost:8000), lalu masuk dengan akun yang diatur melalui `DEMO_USERNAME` dan `DEMO_PASSWORD`.
 
-## Menjalankan web dan worker
-
-`composer dev` menjalankan server di http://localhost:8000 yang menyajikan build React. Untuk mengembangkan React jalankan terminal kedua:
+Saat mengembangkan tampilan React, jalankan perintah berikut di terminal kedua:
 
 ```powershell
 npm --prefix frontend run dev
 ```
 
-Buka http://localhost:5173. Vite mem-proxy /api dan /sanctum ke Laravel. Gunakan hostname localhost secara konsisten untuk cookie/CSRF. Hentikan setiap server/worker melalui Ctrl+C pada terminalnya.
+Buka [http://localhost:5173](http://localhost:5173). Server Vite meneruskan permintaan API ke Laravel. Gunakan hostname `localhost` secara konsisten agar sesi login dan CSRF berfungsi. Hentikan server dengan `Ctrl+C`.
 
-Analisis memerlukan DEEPSEEK_API_KEY di backend dan worker terpisah. Jalankan hanya setelah menyetujui biaya provider:
+### 5. Jalankan worker untuk analisis AI
+
+Analisis AI membutuhkan `DEEPSEEK_API_KEY` dan worker, yaitu proses yang mengerjakan antrean analisis. Perintah ini mengizinkan penggunaan API berbayar:
 
 ```powershell
 php artisan workload:work --allow-paid
 ```
 
-Model default deepseek-flash; pengaturan lengkap tersedia di .env.example. Setelah perubahan env gunakan `php artisan config:clear` dan restart worker. Jika CA PHP belum tersedia, arahkan DEEPSEEK_CA_BUNDLE ke CA bundle tepercaya; jangan menonaktifkan TLS. Sertifikat yang dirujuk konfigurasi lokal harus tetap tersedia.
+Biarkan terminal worker tetap berjalan selama analisis. Setelah mengubah `.env`, jalankan `php artisan config:clear`, lalu mulai ulang worker. Jika diperlukan sertifikat CA, isi `DEEPSEEK_CA_BUNDLE` dengan lokasi CA bundle tepercaya; jangan menonaktifkan verifikasi TLS.
 
-## Dataset dan penggunaan
+## Cara menggunakan aplikasi
 
-Login, import `samples/FTEMation_Workload_Dataset_v1.xlsx`, tinjau Overview/Data aktivitas, kemudian mulai analisis bila biaya AI diizinkan. Analisis AI memantau antrean dan menyediakan retry/cancel/resume. Hasil analisis memilih riwayat run dan menyediakan export setelah seluruh aktivitas serta kesimpulan sukses. Pilihan dataset berlaku di seluruh workspace. KPI memakai completed run terbaru; status dapat menunjukkan run terbaru yang belum selesai.
+1. Masuk ke aplikasi.
+2. Buka halaman Import Dataset dan unggah file Excel. Contoh tersedia di `samples/FTEMation_Workload_Dataset_v1.xlsx`.
+3. Pilih dataset, lalu periksa ringkasan dan Data Aktivitas.
+4. Jalankan analisis dari halaman Analisis AI. Pastikan worker aktif dan biaya API telah diizinkan.
+5. Buka Hasil Analisis untuk meninjau rekomendasi dan mengunduh laporan setelah proses selesai.
 
-Workbook wajib .xlsx, maksimal 5 MB, tepat satu sheet Workload dengan sembilan header berurutan:
+Dataset yang dipilih berlaku untuk seluruh halaman. Ringkasan hasil menggunakan analisis lengkap terbaru, sedangkan status proses dapat menunjukkan analisis terbaru yang masih berjalan. Rekomendasi AI perlu ditinjau bersama pemilik proses sebelum diterapkan.
+
+### Format file Excel
+
+File harus berformat `.xlsx`, berukuran maksimal **5 MB**, dan memiliki tepat satu sheet bernama `Workload`. Gunakan sembilan kolom berikut dalam urutan yang sama:
+
+| Kolom | Isi |
+| --- | --- |
+| `activity_id` | ID aktivitas, unik dalam satu impor |
+| `employee_id` | ID karyawan |
+| `employee_name` | Nama karyawan |
+| `department` | Nama departemen |
+| `activity_name` | Nama aktivitas |
+| `description` | Penjelasan aktivitas |
+| `frequency` | `daily`, `weekly`, atau `monthly` |
+| `volume` | Jumlah pekerjaan per periode, harus positif |
+| `duration_minutes` | Durasi per pekerjaan dalam menit, harus positif |
+
+Semua nilai wajib diisi. Identitas karyawan harus konsisten dan sel tidak boleh berisi formula. Kesalahan impor ditampilkan per baris. Template tersedia melalui endpoint terautentikasi `/api/import-template`.
+
+Dataset contoh berisi 60 aktivitas, 12 karyawan, dan 3 departemen. Workbook evaluasi terpisah merupakan rubrik studi kasus dan tidak dikirim sebagai jawaban ke model AI.
+
+## Dasar perhitungan
 
 ```text
-activity_id, employee_id, employee_name, department, activity_name, description, frequency, volume, duration_minutes
+Menit kerja tahunan = volume * duration_minutes * faktor tahunan
+FTE = menit kerja tahunan / 115200
+Estimasi penghematan FTE = FTE * saving_rate
 ```
 
-Nilai wajib terisi; ID aktivitas unik per import; identitas karyawan konsisten; frekuensi daily/weekly/monthly; volume dan durasi positif. Formula ditolak, error dilaporkan per baris. Import memakai transaksi dan penyimpanan privat. Template tersedia di endpoint privat /api/import-template.
+| Frekuensi | Faktor tahunan |
+| --- | ---: |
+| daily | 240 |
+| weekly | 48 |
+| monthly | 12 |
 
-Dataset sintetis referensi berisi 60 aktivitas, 12 karyawan dan 3 departemen. Workbook evaluasi terpisah merupakan rubrik studi kasus, bukan jawaban yang dikirim ke model.
+| Peluang otomatisasi | saving_rate |
+| --- | ---: |
+| high | 0.6 |
+| medium | 0.3 |
+| low | 0.1 |
 
-## Perhitungan dan AI
+Skor prioritas memperhitungkan estimasi penghematan, risiko, dan usaha implementasi:
 
 ```text
-annual_minutes = volume * duration_minutes * annual_factor
-FTE = annual_minutes / annual_capacity_minutes
-annual_factor: daily=240, weekly=48, monthly=12
-annual_capacity_minutes=115200
-saving = FTE * saving_rate
-saving_rate: high=0.6, medium=0.3, low=0.1
 priority = 100 * (saving / maxSavingRun) * riskFactor * effortFactor
-risk low/medium/high: 1 / 0.7 / 0.4
-effort low/medium/high: 1 / 0.75 / 0.5
+riskFactor untuk low / medium / high = 1 / 0.7 / 0.4
+effortFactor untuk low / medium / high = 1 / 0.75 / 0.5
 ```
 
-Priority nol bila maxSavingRun nol. Total dataset referensi 4.4671875 FTE. Snapshot perhitungan melekat ke run; konfigurasi baru tidak menghitung ulang histori. UI memakai empat desimal dan export enam desimal. FTE di atas satu perlu verifikasi periode, volume dan pembagian pekerjaan.
+`maxSavingRun` adalah penghematan terbesar dalam satu analisis. Skor bernilai nol jika nilai tersebut nol. Total dataset contoh adalah 4.4671875 FTE. Tampilan memakai empat angka desimal dan ekspor enam angka desimal.
 
-Run baru memakai activity-v2 dan summary-v2; prompt v1 tetap tersedia untuk histori. Retry/resume memakai snapshot asli. Cache privat per pemilik mencakup fingerprint input, model, prompt dan taksonomi. Model/prompt, request/status/failure, token jika tersedia dan provenance cache disimpan.
+Setiap analisis menyimpan salinan pengaturan perhitungannya. Perubahan konfigurasi tidak mengubah hasil historis. FTE di atas satu perlu diperiksa kembali berdasarkan periode, volume, durasi, dan pembagian pekerjaan.
 
-Backend memvalidasi JSON shape, enum, ID, grouping dan oversight dengan retry terbatas. Grouping memakai 20 kategori di database/data/group_taxonomy.json. Risiko/judgment tinggi wajib kontrol manusia. Perbedaan level dalam grup dapat valid; kandidat review bukan bukti kesalahan AI. JSON valid tidak membuktikan reasoning benar, integrasi tersedia, atau akurasi model. Review pemilik proses tetap diperlukan.
+## Jika analisis belum berjalan
 
-Export otomatis hanya tersedia untuk completed run dengan seluruh aktivitas/kesimpulan sukses:
+- Pastikan worker aktif dan mendengarkan koneksi `database` pada antrean `analysis`.
+- Status menunggu worker berarti belum ada sinyal worker terbaru; status tersebut tidak selalu berarti prosesnya mati.
+- Jika pekerjaan sudah ada dalam antrean, tidak perlu memulai analisis baru. Tombol coba ulang juga tidak menyalakan worker.
+- Proses yang tidak bergerak selama 10 menit dapat dipulihkan melalui UI ketika opsi pemulihan tersedia. Jangan menghapus job atau mengubah progres secara manual.
+- Pembatalan menunggu permintaan AI yang sedang berlangsung selesai sehingga masih dapat menimbulkan biaya. Melanjutkan analisis hanya memproses bagian yang belum berhasil.
+
+Untuk pengelola: heartbeat worker berlaku 420 detik. Pertahankan urutan timeout job (360 detik) < mutex (400 detik) < `DB_QUEUE_RETRY_AFTER` (420 detik). Linux dengan PCNTL dianjurkan untuk penghentian paksa saat timeout; Windows tidak menjamin penghentian proses tepat pada batas waktu. Permintaan AI dapat terulang jika proses mati sebelum hasil tersimpan.
+
+## Struktur proyek
+
+| Direktori | Isi |
+| --- | --- |
+| `app/Http/`, `routes/` | API, autentikasi, dan validasi permintaan |
+| `app/Services/Workload/` | Impor Excel dan perhitungan FTE |
+| `app/Services/Analysis/`, `app/Jobs/` | Analisis AI, antrean, cache, dan ekspor |
+| `database/` | Migrasi, seeder, dan kategori aktivitas |
+| `frontend/src/` | Tampilan web React |
+| `mobile/` | Aplikasi Android Flutter |
+| `resources/prompts/` | Prompt AI beserta versinya |
+| `resources/views/reports/` | Template laporan PDF |
+| `samples/` | Dataset contoh dan rubrik evaluasi |
+| `docs/` | Dokumentasi teknis dan studi kasus |
+| `storage/` | File privat, cache, sesi, dan log |
+
+Panduan instalasi dan build Android tersedia di [README mobile](mobile/README.md). Web menggunakan sesi dan cookie Sanctum dengan CSRF, sedangkan Android menggunakan token per perangkat yang disimpan di secure storage.
+
+## Catatan pemeliharaan
+
+- Perhitungan FTE dan penghematan tetap dilakukan di Laravel. AI tidak menjadi sumber angka perhitungan tersebut.
+- Analisis baru memakai prompt `activity-v2` dan `summary-v2`. Percobaan ulang dan proses lanjutan memakai konfigurasi asli. Cache dipisahkan per pemilik data.
+- Backend memvalidasi struktur hasil AI, kategori, ID, pengelompokan, dan pengawasan manusia. Hasil yang lolos validasi tetap membutuhkan tinjauan manusia; kontrol manusia wajib untuk keputusan berisiko atau yang membutuhkan penilaian tinggi.
+- Pembatalan dan pelanjutan mempertahankan hasil yang berhasil. Endpoint `/api/analyses/{run}/cancel` dan `/resume` membutuhkan `execution_version` terbaru; versi atau status yang sudah berubah menghasilkan respons `409`.
+- Ekspor tersedia hanya jika seluruh aktivitas dan kesimpulan berhasil. File disimpan secara privat di `storage/app/private/exports/run-<id>/`.
+
+Perintah analisis dan ekspor melalui terminal:
 
 ```powershell
 php artisan workload:analyze <import-id>
 php artisan workload:export <completed-run-id>
 ```
 
-Analyze mengantrekan pekerjaan berbayar. Export menulis JSON/XLSX/PDF di storage/app/private/exports/run-<id>/. Pertahankan hasil historis dan snapshot aslinya.
+Perintah `workload:analyze` mengantrekan pekerjaan yang menggunakan API berbayar.
 
-## Troubleshooting antrean
+Sebelum deployment, gunakan HTTPS, arahkan document root ke `public/`, atur `APP_ENV=production`, `APP_DEBUG=false`, dan `SESSION_SECURE_COOKIE=true`. Sesuaikan domain Sanctum serta trusted proxy, pertahankan CSRF, dan ganti password demo. Simpan secret hanya di backend.
 
-Pastikan worker mendengarkan koneksi database dan queue analysis. queue_health.not_detected berarti tidak ada sinyal baru, bukan kepastian proses OS mati. Heartbeat berlaku 420 detik. Job yang menunggu tidak membutuhkan dispatch ulang; retry tidak menyalakan worker. Run aktif tanpa heartbeat/job selama 10 menit dapat dipulihkan melalui UI pada run yang sama. Jangan menghapus job atau mereset progres manual.
+Kelola worker dengan process manager dan mulai ulang setelah deployment. Pastikan direktori storage/cache dapat ditulis, serta siapkan pemantauan failed jobs, kapasitas disk, rotasi log, dan backup. Build lokal saja belum membuktikan kesiapan production.
 
-Timeout job 360 detik, mutex 400 detik, DB_QUEUE_RETRY_AFTER=420: pertahankan timeout < mutex < retry_after. Cancel menyelesaikan request in-flight pada titik aman dan masih dapat menimbulkan biaya. Resume hanya melanjutkan bagian belum sukses. Exactly-once lintas provider/database tidak dijamin bila proses mati sebelum persistence. Linux/PCNTL dianjurkan untuk hard timeout; Windows tidak menjamin penghentian proses OS tepat pada batas waktu.
+Paket source ini tidak menyertakan suite pengujian atau skrip QA. Untuk memeriksa frontend, gunakan `npm --prefix frontend run lint` dan `npm --prefix frontend run build`. Perubahan autentikasi, akses data, antrean, dan perhitungan memerlukan verifikasi regresi sebelum deployment.
 
-## Android
+## Dokumentasi lanjutan
 
-Lihat [README mobile](mobile/README.md) untuk Flutter, API_BASE_URL, emulator/USB, kontrak token, build APK dan batas release. React memakai session/cookie Sanctum dengan CSRF; Android memakai token per perangkat di secure storage. Migration Sanctum disertakan; periksa status pada setiap database tujuan.
+- [Panduan dataset](docs/DATASET_GUIDE.md)
+- [Diagram database](docs/ERD_v1.mmd)
+- [Kebutuhan aplikasi / PRD](docs/PRD_v1.1.md)
+- [Keputusan teknologi](docs/TECH_STACK_DECISIONS_v1.1.md)
+- [Dokumen studi kasus](<docs/references/Studi Kasus AI Insight.pdf>)
 
-## Keamanan dan batas operasional
-
-Deployment memakai HTTPS, satu origin, document root public/, APP_ENV=production, APP_DEBUG=false, SESSION_SECURE_COOKIE=true, hostname Sanctum/trusted proxy yang sesuai, session HttpOnly dan SameSite=lax. Jangan mematikan CSRF.
-
-Akun plaintext legacy ditingkatkan menjadi hash setelah login web sah; mobile menolak akun plaintext. Rotasi akun legacy dilakukan secara terkontrol. Simpan secret di .env backend, bukan variabel VITE_, Git, URL atau log. Upload/export privat dan endpoint dilindungi autentikasi/ownership. Teks Excel diekspor sebagai literal untuk mencegah formula injection.
-
-Kelola worker dengan process manager, restart setelah deploy, pastikan storage/bootstrap cache writable, pantau failed jobs/kapasitas disk dan rotasi log. Hosting target, HTTPS, pemulihan proses, backup/recovery dan skala dataset nyata memerlukan verifikasi deployment. Build lokal belum membuktikan kesiapan production.
-
-## Pemeliharaan
-
-Pertahankan Laravel di root, React SPA di frontend/ dan Flutter Android di mobile/. Frontend memakai src/app untuk bootstrap/navigasi, pages, layouts, components, hooks, lib, types dan styles. Gunakan REST JSON, Axios dan CSS biasa. Business logic workload berada di app/Services/Workload/; orkestrasi AI di app/Services/Analysis/. Angka FTE/saving dihitung Laravel, bukan client atau model AI.
-
-Lifecycle analisis: queued/processing -> cancel_requested -> cancelled -> queued saat resume -> completed. POST /api/analyses/{run}/cancel dan /resume membawa execution_version dari status server; versi/state stale menghasilkan 409. Ownership tetap berlaku. Hasil sukses, snapshot, usage dan cache dipertahankan saat resume. Setelah pembatalan tanpa heartbeat selama 10 menit, UI dapat meminta acknowledgement ulang; periksa worker yang mungkin masih hidup sebelum pemulihan manual.
-
-High berarti mayoritas langkah dapat diotomasi, Medium sebagian langkah dengan review/exception signifikan, dan Low berupa bantuan untuk judgment manusia. Boolean oversight perlu dibaca bersama catatan: false bukan jaminan tanpa kontrol manusia. Keputusan berisiko tetap di tangan manusia. Kandidat review beda level tidak mendeteksi semua inkonsistensi atau halusinasi.
-
-Paket source ini tidak menyertakan suite pengujian atau skrip QA. Dependency pengembangan tetap dikunci untuk kompatibilitas instalasi dan pemeliharaan; Composer juga menyediakan Pint, sedangkan React/Flutter memiliki konfigurasi lint masing-masing. Perubahan autentikasi, ownership, queue, lifecycle dan perhitungan memerlukan verifikasi regresi sebelum deployment.
-
-Dokumentasi studi kasus: [panduan dataset](docs/DATASET_GUIDE.md), [ERD](docs/ERD_v1.mmd), [PRD assessment](docs/PRD_v1.1.md), [keputusan stack](docs/TECH_STACK_DECISIONS_v1.1.md), dan [sumber assessment](<docs/references/Studi Kasus AI Insight.pdf>). PRD/ERD awal merupakan referensi assessment; migration dan kode aktif mencakup tambahan lifecycle/mobile.
+PRD dan ERD awal menjadi referensi studi kasus. Migrasi dan kode aktif juga mencakup pengembangan lifecycle analisis dan aplikasi mobile.

@@ -11,7 +11,7 @@ export default function HelpPage({ summary }: { summary: Summary | null }) {
                 <div className="formula">volume × durasi menit × faktor tahunan<hr />{calculation.annual_capacity_minutes.toLocaleString("id-ID")} menit / FTE / tahun</div>
                 <dl>{Object.entries(calculation.annual_factors).map(([frequency, value]) => <div key={frequency}><dt>{frequency}</dt><dd>{value} kali / tahun</dd></div>)}</dl>
                 <p>Angka di atas mengikuti {summary.analysis_run_id ? `snapshot completed run #${summary.analysis_run_id}` : "konfigurasi aktif untuk dataset sebelum analisis"}. Laporan run lain mengikuti snapshot masing-masing.</p>
-            </> : <p>Pilih atau impor dataset untuk melihat asumsi perhitungan yang digunakan. Rumus juga tersedia di README proyek.</p>}
+            </> : <p>Pilih atau impor dataset untuk melihat asumsi perhitungan yang digunakan.</p>}
             <p>Aktivitas tercatat merupakan cuplikan pekerjaan, bukan ukuran produktivitas individu. Nilai di atas satu FTE perlu diverifikasi dari volume, periode, durasi dan pembagian pekerjaan; nilainya tidak dibatasi otomatis.</p>
         </HelpAccordion>
         <HelpAccordion number={2} question="Apa arti pilihan periode tahunan, bulanan, mingguan dan harian?">

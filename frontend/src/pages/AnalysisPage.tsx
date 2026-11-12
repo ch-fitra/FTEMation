@@ -1,3 +1,4 @@
+import EmptyState from "../components/EmptyState";
 import { createPortal } from "react-dom";
 import AnalysisActionDialog from "../components/AnalysisActionDialog";
 import AiResultReview from "../components/AiResultReview";
@@ -212,10 +213,11 @@ export default function AnalysisPage({
     }
     if (!importId)
         return (
-            <section className="panel empty">
-                <h2>Mulai dengan dataset workload</h2>
-                <Link to="/imports">Import dataset</Link>
-            </section>
+            <EmptyState
+                icon={resultsView ? "chart" : "upload"}
+                title={resultsView ? "Belum ada hasil analisis" : "Mulai dengan dataset workload"}
+                description={resultsView ? "Hasil dan rekomendasi otomatisasi akan tersedia setelah dataset dipilih dan analisis AI selesai dijalankan." : "Impor dan pilih dataset melalui halaman Import Dataset untuk mulai menganalisis potensi otomatisasi aktivitas kerja."}
+            />
         );
     const active = run && ["queued", "processing"].includes(run.status);
     const queued = run?.status === "queued";
@@ -322,11 +324,11 @@ export default function AnalysisPage({
                 runId ? <div className="analysis-loading" role="status" aria-live="polite">
                     <span className="analysis-spinner" aria-hidden="true" />
                     <p>Memuat hasil analisis…</p>
-                </div> : <section className="analysis-empty" role="status">
-                    <span className="analysis-empty-icon" aria-hidden="true"><Icon name="chart" /></span>
-                    <h2>{resultsView ? "Belum ada hasil analisis" : "Belum ada analisis"}</h2>
-                    <p>{resultsView ? "Jalankan analisis di halaman Analisis AI untuk melihat hasil dan rekomendasi otomatisasi." : "Mulai analisis untuk menilai potensi otomatisasi seluruh aktivitas dalam dataset ini."}</p>
-                </section>
+                </div> : <EmptyState
+                    icon="chart"
+                    title={resultsView ? "Belum ada hasil analisis" : "Belum ada analisis"}
+                    description={resultsView ? "Jalankan analisis di halaman Analisis AI untuk melihat hasil dan rekomendasi otomatisasi." : "Mulai analisis untuk menilai potensi otomatisasi seluruh aktivitas dalam dataset ini."}
+                />
             )}
             {resultsView && run && run.status !== "completed" && <p className="alert">Run ini belum selesai. <Link to={`/analysis?dataset=${importId}&run=${runId}`}>Pantau proses di Analisis AI</Link></p>}
             {!resultsView && run && run.status !== "completed" && (

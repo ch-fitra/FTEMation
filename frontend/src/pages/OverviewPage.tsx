@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
+import EmptyState from "../components/EmptyState";
 import Select from "../components/Select";
 import MetricCard from "../components/MetricCard";
 import OpportunityCards from "../components/OpportunityCards";
@@ -12,12 +13,11 @@ export default function OverviewPage({ summary, hasImports, importId }: {
     importId: number | null;
 }) {
     const [period, setPeriod] = useState("year");
-    if (!summary) return <section className="panel empty">
-        <h2>{hasImports ? "Pilih dataset untuk memulai" : "Mulai analisis workload pertama Anda"}</h2>
-        <p>Impor file Excel aktivitas kerja untuk menghitung FTE dan menemukan peluang otomatisasi menggunakan AI.</p>
-        <ol className="journey"><li>Impor dataset</li><li>Periksa aktivitas dan beban kerja</li><li>Jalankan analisis AI</li><li>Tinjau rekomendasi dan unduh laporan</li></ol>
-        <div><Link className="button primary" to="/imports">Impor Dataset</Link></div>
-    </section>;
+    if (!summary) return <EmptyState
+        icon="overview"
+        title={hasImports ? "Pilih dataset untuk memulai" : "Mulai analisis workload pertama Anda"}
+        description={hasImports ? "Pilih dataset yang tersedia untuk melihat ringkasan beban kerja dan peluang otomatisasi." : "Belum ada data workload. Impor file Excel melalui halaman Import Dataset untuk melihat ringkasan beban kerja dan peluang otomatisasi."}
+    />;
     const max = Math.max(...summary.departments.map(d => d.total_fte), 0.001);
     const periods: Record<string, { divisor: number; unit: string }> = {
         year: { divisor: 1, unit: "tahun" },
