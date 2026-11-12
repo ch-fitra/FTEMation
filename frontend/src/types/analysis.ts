@@ -75,7 +75,7 @@ export interface AnalysisRun {
     consistency_review?: {
         group_id: string;
         message: string;
-        activities: Pick<AnalysisActivity, "activity_id" | "activity_name" | "department" | "automation_level" | "reason">[];
+        activities: (Pick<AnalysisActivity, "activity_id" | "activity_name" | "department" | "automation_level" | "reason"> & { factors?: Record<string, string> })[];
     }[];
     failures: { activity_id: string; message: string }[];
     report?: Report;

@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import AiResultReview from "../components/AiResultReview";
 import ActivityAnalysisDialog from "../components/ActivityAnalysisDialog";
 import Icon from "../components/Icon";
 import Select from "../components/Select";
@@ -339,18 +340,7 @@ export default function AnalysisPage({
             {resultsView && report && run?.status === "completed" && (
                 <>
                     <section className="panel analysis-results">
-                        {!!run?.consistency_review?.length && (
-                            <details className="analysis-reading-guide">
-                                <summary>Review konsistensi: {run.consistency_review.length} kelompok dengan level berbeda</summary>
-                                <p>Kandidat review, bukan bukti inkonsistensi. Kategori yang sama tidak menjamin proses identik; bandingkan langkah, exception, judgment, dan risiko bersama pemilik proses.</p>
-                                {run.consistency_review.map((group) => (
-                                    <details key={group.group_id}>
-                                        <summary>{group.group_id}</summary>
-                                        {group.activities.map((a) => <p key={a.activity_id}><b>{a.activity_id} · {a.department} · {a.automation_level}</b>: {a.reason}</p>)}
-                                    </details>
-                                ))}
-                            </details>
-                        )}
+                        <AiResultReview key={run.id} groups={run.consistency_review ?? []} reportGroups={report.groups} />
                         <div
                             className="analysis-tabs"
                             role="group"

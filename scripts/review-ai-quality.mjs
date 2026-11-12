@@ -29,18 +29,22 @@ try {
     await page.locator('.department-chart').waitFor();
     await page.getByText(/6 karyawan memiliki aktivitas tercatat di atas satu FTE/).waitFor();
     checks.push('Run #4 dashboard: six employees above one FTE with verification guidance');
-    await page.goto('http://localhost:8000/analysis', { waitUntil: 'networkidle' });
+    await page.goto('http://localhost:8000/results?dataset=4&run=4', { waitUntil: 'networkidle' });
     await page.locator('.analysis-tabs').waitFor();
     const data = await (await page.request.get('http://localhost:8000/api/analyses/4', { headers: { Origin:'http://localhost:8000', Accept:'application/json' } })).json();
     assert.equal(data.report.prompt_version, 'activity-v1');
     assert.deepEqual(data.report.totals.levels, {high:29,medium:28,low:33});
     assert.equal(data.report.activities.length,90);
     assert(data.consistency_review.some(g => g.group_id === 'data_reconciliation'));
-    await page.getByText(/Review konsistensi:.*kelompok/).click();
-    await page.getByText('data_reconciliation', { exact:true }).click();
-    const review = page.locator('details:not(.analysis-reading-guide)').filter({has:page.locator('summary').filter({hasText:/^data_reconciliation$/})});
+    await page.getByRole('heading', { name:'Pemeriksaan Hasil AI', exact:true }).waitFor();
+    const more = page.getByRole('button', {name:`Lihat semua ${data.consistency_review.length} kelompok`, exact:true});
+    if (await more.count()) await more.click();
+    await page.locator('.ai-review-group').filter({hasText:'Pencocokan data'}).click();
+    const review = page.locator('.ai-review-dialog[open]');
     assert.match(await review.innerText(), /ACT-1002/);
     assert.match(await review.innerText(), /ACT-1036/);
+    await page.keyboard.press('Escape');
+    await review.waitFor({state:'hidden'});
     checks.push('Advisory explains differences and preserves historical classifications');
     await page.getByRole('button', {name:'Seluruh aktivitas',exact:true}).click();
     for (const id of ['ACT-1038','ACT-1062','ACT-1063','ACT-1068','ACT-1071']) {
