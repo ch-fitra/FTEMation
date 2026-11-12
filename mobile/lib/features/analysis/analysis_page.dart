@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/workspace_widgets.dart';
 import '../datasets/workspace_state.dart';
 import 'run_state.dart';
@@ -103,20 +104,15 @@ class _AnalysisState extends State<AnalysisPage> with WidgetsBindingObserver {
             if (runs!.loading) const LinearProgressIndicator(),
             if (runs!.error != null) Notice(runs!.error!),
             if (runs!.history.isNotEmpty)
-              DropdownButtonFormField<int>(
+              AppDropdown<int>(
                 key: ValueKey(runs!.selectedId),
-                initialValue: runs!.selectedId,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Riwayat analisis',
-                ),
+                value: runs!.selectedId,
+                label: 'Riwayat analisis',
                 items: runs!.history
                     .map(
-                      (v) => DropdownMenuItem(
+                      (v) => AppDropdownItem(
                         value: v['id'] as int,
-                        child: Text(
-                          'Run #${v['id']} - ${analysisStates[v['status']] ?? v['status']}',
-                        ),
+                        label: 'Run ${v['id']} \u00b7 ${analysisStates[v['status']] ?? v['status']}',
                       ),
                     )
                     .toList(),
@@ -140,7 +136,7 @@ class _AnalysisState extends State<AnalysisPage> with WidgetsBindingObserver {
                     ),
                     Text('$success / $total aktivitas sukses'),
                     Text(
-                      'Run #${r['id']} - versi ${r['execution_version']}\nModel: ${r['actual_model'] ?? r['model_name']}\nPrompt: ${r['prompt_version']}',
+                      'Run ${r['id']} - versi ${r['execution_version']}\nModel: ${r['actual_model'] ?? r['model_name']}\nPrompt: ${r['prompt_version']}',
                     ),
                     Text(
                       'Antrean: ${r['queue_health']?['worker_status'] == 'recently_seen' ? 'Sinyal worker baru terdeteksi' : 'Belum ada sinyal worker baru; lihat diagnosis server'}',

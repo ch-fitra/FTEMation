@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'app_dropdown.dart';
 import '../../features/datasets/workspace_state.dart';
 import '../theme/app_theme.dart';
 
@@ -41,22 +42,18 @@ class PageBody extends StatelessWidget {
         Text(title, style: Theme.of(context).textTheme.headlineMedium),
         Text(subtitle, style: const TextStyle(color: AppColors.muted)),
         const SizedBox(height: 20),
-        DropdownButtonFormField<int>(
+        AppDropdown<int>(
           key: ValueKey('${state.activeId}-${state.page}'),
-          initialValue:
+          value:
               state.datasetChoices.any((d) => d['id'] == state.activeId)
               ? state.activeId
               : null,
-          isExpanded: true,
-          decoration: const InputDecoration(labelText: 'Dataset aktif'),
+          label: 'Dataset aktif',
           items: state.datasetChoices
               .map(
-                (d) => DropdownMenuItem(
+                (d) => AppDropdownItem(
                   value: d['id'] as int,
-                  child: Text(
-                    d['filename'] as String? ?? 'Dataset #${d["id"]}',
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  label: d['filename'] as String? ?? 'Dataset ${d["id"]}',
                 ),
               )
               .toList(),

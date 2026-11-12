@@ -44,22 +44,7 @@ class _LoginState extends State<LoginPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Brand(large: true),
-                  const SizedBox(height: 48),
-                  const Text(
-                    'Kenali beban kerja.\nTemukan peluang.',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 34,
-                      height: 1.2,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Assessment yang terarah, dengan keputusan tetap di tangan manusia.',
-                    style: TextStyle(color: Colors.white70),
-                  ),
+                  const Center(child: Brand(large: true)),
                   const SizedBox(height: 32),
                   Container(
                     padding: const EdgeInsets.all(24),
@@ -76,9 +61,10 @@ class _LoginState extends State<LoginPage> {
                             'Selamat datang',
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 24),
                           TextFormField(
                             controller: username,
+                            textInputAction: TextInputAction.next,
                             decoration: const InputDecoration(
                               labelText: 'Username',
                             ),
@@ -136,11 +122,6 @@ class _LoginState extends State<LoginPage> {
                         ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'TANCORP / FTEMation Mobile 1.0.0',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                 ],
               ),

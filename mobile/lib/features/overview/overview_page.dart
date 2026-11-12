@@ -24,7 +24,7 @@ class OverviewPage extends StatelessWidget {
             const Notice('Pilih atau import dataset untuk melihat assessment.'),
           if (s != null) ...[
             Text(
-              'Status terbaru: ${analysisStates[s['analysis_status']] ?? 'Belum dimulai'} - Sumber KPI: ${s['analysis_run_id'] == null ? 'baseline' : 'Run #${s['analysis_run_id']}'}',
+              'Status terbaru: ${analysisStates[s['analysis_status']] ?? 'Belum dimulai'} - Sumber KPI: ${s['analysis_run_id'] == null ? 'baseline' : 'Run ${s['analysis_run_id']}'}',
             ),
             const SizedBox(height: 16),
             LayoutBuilder(

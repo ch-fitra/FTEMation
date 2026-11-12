@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/workspace_widgets.dart';
 import '../datasets/workspace_state.dart';
 import '../../core/format.dart';
@@ -104,15 +105,14 @@ class _ActivitiesState extends State<ActivitiesPage> {
             },
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: department,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Departemen'),
+          AppDropdown<String>(
+            value: department,
+            label: 'Departemen',
             items: ['', ...departments]
                 .map(
-                  (v) => DropdownMenuItem(
+                  (v) => AppDropdownItem(
                     value: v,
-                    child: Text(v.isEmpty ? 'Semua' : frequencyLabels[v] ?? v),
+                    label: v.isEmpty ? 'Semua departemen' : v,
                   ),
                 )
                 .toList(),
@@ -122,14 +122,14 @@ class _ActivitiesState extends State<ActivitiesPage> {
             },
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: frequency,
-            decoration: const InputDecoration(labelText: 'Frekuensi'),
+          AppDropdown<String>(
+            value: frequency,
+            label: 'Frekuensi',
             items: ['', 'daily', 'weekly', 'monthly']
                 .map(
-                  (v) => DropdownMenuItem(
+                  (v) => AppDropdownItem(
                     value: v,
-                    child: Text(v.isEmpty ? 'Semua' : frequencyLabels[v] ?? v),
+                    label: v.isEmpty ? 'Semua frekuensi' : frequencyLabels[v] ?? v,
                   ),
                 )
                 .toList(),

@@ -52,7 +52,7 @@ class WorkspaceState extends ChangeNotifier {
     activeDataset =
         datasets.where((d) => d['id'] == id).firstOrNull ??
         (activeId == id ? activeDataset : null) ??
-        {'id': id, 'filename': 'Dataset #$id'};
+        {'id': id, 'filename': 'Dataset $id'};
     activeId = id;
     summary = null;
     loading = true;

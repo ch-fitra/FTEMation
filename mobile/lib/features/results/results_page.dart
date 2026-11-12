@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/workspace_widgets.dart';
 import '../datasets/workspace_state.dart';
 import '../analysis/run_state.dart';
@@ -87,18 +88,15 @@ class _ResultsState extends State<ResultsPage> {
           if (runs?.loading == true) const LinearProgressIndicator(),
           if (runs?.error != null) Notice(runs!.error!),
           if (runs != null && runs!.history.isNotEmpty)
-            DropdownButtonFormField<int>(
+            AppDropdown<int>(
               key: ValueKey(runs!.selectedId),
-              initialValue: runs!.selectedId,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Riwayat run'),
+              value: runs!.selectedId,
+              label: 'Riwayat analisis',
               items: runs!.history
                   .map(
-                    (v) => DropdownMenuItem(
+                    (v) => AppDropdownItem(
                       value: v['id'] as int,
-                      child: Text(
-                        'Run #${v['id']} - ${analysisStates[v['status']] ?? v['status']}',
-                      ),
+                      label: 'Run ${v['id']} \u00b7 ${analysisStates[v['status']] ?? v['status']}',
                     ),
                   )
                   .toList(),
@@ -117,7 +115,7 @@ class _ResultsState extends State<ResultsPage> {
             ),
           if (r != null)
             Text(
-              'Dataset #${r['import_id']} - Run #${r['id']} - ${analysisStates[r['status']]}\nModel: ${r['actual_model'] ?? r['model_name']} - Prompt: ${r['prompt_version']}\n${r['progress']?['success'] ?? 0} / ${r['total']} aktivitas sukses',
+              'Dataset ${r['import_id']} - Run ${r['id']} - ${analysisStates[r['status']]}\nModel: ${r['actual_model'] ?? r['model_name']} - Prompt: ${r['prompt_version']}\n${r['progress']?['success'] ?? 0} / ${r['total']} aktivitas sukses',
             ),
           if (report != null) ...[
             const SizedBox(height: 12),
