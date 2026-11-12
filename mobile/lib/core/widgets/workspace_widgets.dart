@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../demo/demo_data.dart';
+import '../../features/datasets/workspace_state.dart';
 import '../theme/app_theme.dart';
 
 class Panel extends StatelessWidget {
@@ -33,24 +33,30 @@ class PageBody extends StatelessWidget {
   final List<Widget> children;
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<DemoState>();
+    final state = context.watch<WorkspaceState>();
     return ListView(
-      key: ValueKey('$title-${state.active.id}'),
+      key: ValueKey('$title-${state.activeId}'),
       padding: const EdgeInsets.all(AppSpace.gap),
       children: [
         Text(title, style: Theme.of(context).textTheme.headlineMedium),
         Text(subtitle, style: const TextStyle(color: AppColors.muted)),
         const SizedBox(height: 20),
-        DropdownButtonFormField<String>(
-          key: ValueKey(state.active.id),
-          initialValue: state.active.id,
+        DropdownButtonFormField<int>(
+          key: ValueKey('${state.activeId}-${state.page}'),
+          initialValue:
+              state.datasetChoices.any((d) => d['id'] == state.activeId)
+              ? state.activeId
+              : null,
           isExpanded: true,
-          decoration: const InputDecoration(labelText: 'Dataset aktif · DEMO'),
-          items: demoDatasets
+          decoration: const InputDecoration(labelText: 'Dataset aktif'),
+          items: state.datasetChoices
               .map(
                 (d) => DropdownMenuItem(
-                  value: d.id,
-                  child: Text(d.name, overflow: TextOverflow.ellipsis),
+                  value: d['id'] as int,
+                  child: Text(
+                    d['filename'] as String? ?? 'Dataset #${d["id"]}',
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               )
               .toList(),
@@ -59,6 +65,8 @@ class PageBody extends StatelessWidget {
           },
         ),
         const SizedBox(height: 20),
+        if (state.loading) const LinearProgressIndicator(),
+        if (state.error != null) Notice(state.error!),
         ...children,
         const SizedBox(height: 24),
       ],
@@ -87,28 +95,14 @@ class LevelBadge extends StatelessWidget {
   final String level;
   @override
   Widget build(BuildContext context) => Chip(
-    label: Text(level),
+    label: Text(
+      level.isEmpty ? level : '${level[0].toUpperCase()}${level.substring(1)}',
+    ),
     side: BorderSide.none,
-    backgroundColor: level == 'High'
+    backgroundColor: level.toLowerCase() == 'high'
         ? AppColors.highBackground
-        : level == 'Medium'
+        : level.toLowerCase() == 'medium'
         ? AppColors.mediumBackground
         : AppColors.canvas,
   );
 }
-
-void integrationNotice(BuildContext context) => showDialog<void>(
-  context: context,
-  builder: (c) => AlertDialog(
-    title: const Text('Tersedia pada Tahap 2'),
-    content: const Text(
-      'Preview ini tidak mengunggah file, menjalankan AI, atau mengubah data server. Integrasi Laravel REST API tersedia pada Tahap 2.',
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(c),
-        child: const Text('Mengerti'),
-      ),
-    ],
-  ),
-);

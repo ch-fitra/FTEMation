@@ -1,196 +1,187 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ftemation_mobile/app.dart';
-import 'package:ftemation_mobile/core/demo/demo_data.dart';
+import 'package:ftemation_mobile/features/auth/session_state.dart';
+import 'package:ftemation_mobile/features/datasets/workspace_state.dart';
 import 'package:provider/provider.dart';
 
-Future<void> enter(WidgetTester t) async {
-  await t.pumpWidget(const FtemationApp());
-  await t.pumpAndSettle();
-  expect(find.text('Masuk ke Demo UI'), findsOneWidget);
-  await t.ensureVisible(find.text('Masuk ke Demo UI'));
-  await t.tap(find.text('Masuk ke Demo UI'));
-  await t.pumpAndSettle();
-}
+import 'support/fake_backend.dart';
 
-Future<void> tab(WidgetTester t, String path) async {
-  await t.tap(find.byKey(ValueKey(path)));
+Future<void> enter(
+  WidgetTester t,
+  FakeBackend backend,
+  MemoryTokens storage,
+) async {
+  await t.pumpWidget(FtemationApp(api: backend.client(), storage: storage));
   await t.pumpAndSettle();
-  expect(t.takeException(), isNull);
+  expect(find.text('Masuk ke Demo UI'), findsNothing);
+  await t.enterText(find.byType(TextFormField).at(0), 'fixture');
+  await t.enterText(find.byType(TextFormField).at(1), 'test-password');
+  await t.ensureVisible(find.text('Masuk'));
+  await t.tap(find.text('Masuk'));
+  await t.pumpAndSettle();
 }
 
 void main() {
-  test('Fixtures remain internally consistent', () {
-    for (final d in demoDatasets) {
-      expect(
-        d.activities.fold(0.0, (s, a) => s + a.fte),
-        closeTo(d.total, 0.00001),
-      );
-      expect(
-        d.activities.fold(0.0, (s, a) => s + a.saving),
-        closeTo(d.saving, 0.00001),
-      );
-    }
-  });
-  testWidgets('Startup, all tabs, dataset persistence and dashboard', (
+  testWidgets('Incomplete run hides exports and cancel requires confirmation', (
     t,
   ) async {
-    await enter(t);
-    expect(find.text('Dashboard assessment'), findsOneWidget);
-    await tab(t, '/datasets');
-    expect(find.text('Import dataset'), findsOneWidget);
-    final state = t.element(find.text('Import dataset')).read<DemoState>();
-    state.select('demo-2');
+    final backend = FakeBackend()..status = 'queued';
+    final storage = MemoryTokens();
+    await enter(t, backend, storage);
+    await t.tap(find.byKey(const ValueKey('/results')));
     await t.pumpAndSettle();
-    await tab(t, '/analysis');
-    expect(find.text('Analisis otomatisasi'), findsOneWidget);
-    await tab(t, '/results');
-    expect(find.text('Hasil analisis AI'), findsOneWidget);
-    await tab(t, '/activities');
-    expect(find.text('Data aktivitas'), findsOneWidget);
-    await tab(t, '/overview');
-    expect(find.text('0,5000'), findsOneWidget);
-    expect(state.active.id, 'demo-2');
-  });
-  testWidgets('Search, filters, activity detail and empty state', (t) async {
-    await enter(t);
-    await tab(t, '/activities');
-    await t.enterText(find.byType(TextField), 'Ayu');
+    expect(find.text('Simpan PDF'), findsNothing);
+    await t.tap(find.byKey(const ValueKey('/analysis')));
     await t.pumpAndSettle();
     await t.scrollUntilVisible(
-      find.text('Detail aktivitas').first,
+      find.text('Batalkan analisis'),
       150,
       scrollable: find.byType(Scrollable).first,
     );
-    await t.drag(find.byType(ListView).first, const Offset(0, -180));
+    await t.drag(find.byType(ListView).first, const Offset(0, -200));
     await t.pumpAndSettle();
-    await t.tap(find.text('Detail aktivitas').first);
+    await t.tap(find.text('Batalkan analisis'));
     await t.pumpAndSettle();
-    expect(find.textContaining('Karyawan: Ayu'), findsOneWidget);
-    expect(find.byKey(const ValueKey('/overview')).hitTestable(), findsNothing);
-    await t.tap(find.byTooltip('Tutup detail'));
+    expect(find.text('Batalkan analisis?'), findsOneWidget);
+    await t.tap(find.text('Kembali'));
     await t.pumpAndSettle();
-    await t.ensureVisible(find.byType(TextField));
-    await t.enterText(find.byType(TextField), 'tidak-ada');
+    expect(backend.requests.where((r) => r.method == 'POST').length, 1);
+    await t.tap(find.text('Batalkan analisis'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Konfirmasi'));
+    await t.pumpAndSettle();
+    expect(backend.status, 'cancelled');
+    expect(find.text('Dibatalkan'), findsWidgets);
+    await t.pumpWidget(const SizedBox());
+    await t.pumpAndSettle();
+  });
+  testWidgets('Login failure retains login without a demo bypass', (t) async {
+    final backend = FakeBackend();
+    final storage = MemoryTokens();
+    await t.pumpWidget(FtemationApp(api: backend.client(), storage: storage));
+    await t.pumpAndSettle();
+    await t.enterText(find.byType(TextFormField).at(0), 'fixture');
+    await t.enterText(find.byType(TextFormField).at(1), 'wrong');
+    await t.ensureVisible(find.text('Masuk'));
+    await t.tap(find.text('Masuk'));
     await t.pumpAndSettle();
     expect(
-      find.textContaining('Tidak ada aktivitas yang cocok'),
+      find.textContaining('Username atau password tidak sesuai.'),
       findsOneWidget,
     );
-    await t.enterText(find.byType(TextField), '');
-    await t.pumpAndSettle();
-    await t.tap(find.text('Semua').first);
-    await t.pumpAndSettle();
-    await t.tap(find.text('Finance').last);
-    await t.pumpAndSettle();
-    expect(find.text('2 aktivitas ditampilkan'), findsOneWidget);
-    expect(t.takeException(), isNull);
+    expect(storage.value, isNull);
+    expect(find.text('Dashboard assessment'), findsNothing);
   });
   for (final size in [
     const Size(320, 568),
     const Size(390, 844),
     const Size(800, 360),
   ]) {
-    testWidgets('No overflow at $size', (t) async {
+    testWidgets('API navigation, source KPI and overflow at $size', (t) async {
       t.view.physicalSize = size;
       t.view.devicePixelRatio = 1;
       addTearDown(t.view.resetPhysicalSize);
       addTearDown(t.view.resetDevicePixelRatio);
-      await enter(t);
+      final backend = FakeBackend();
+      final storage = MemoryTokens();
+      await enter(t, backend, storage);
+      expect(find.text('Dashboard assessment'), findsOneWidget);
+      expect(find.text('4,4672'), findsOneWidget);
       for (final path in [
         '/datasets',
-        '/analysis',
-        '/overview',
         '/results',
         '/activities',
+        '/analysis',
+        '/overview',
       ]) {
-        await tab(t, path);
-        await t.drag(find.byType(ListView).first, const Offset(0, -400));
+        await t.tap(find.byKey(ValueKey(path)));
         await t.pumpAndSettle();
         expect(t.takeException(), isNull);
       }
+      expect(
+        backend.requests.where((r) => r.method == 'POST').map((r) => r.path),
+        ['/api/mobile/login'],
+      );
     });
   }
-  testWidgets('Backend action explains integration and help menu works', (
+  testWidgets('Pagination search filters and result details use API', (
     t,
   ) async {
-    await enter(t);
-    await tab(t, '/datasets');
-    await t.ensureVisible(find.text('Informasi import Excel'));
-    await t.tap(find.text('Informasi import Excel'));
+    final backend = FakeBackend();
+    final storage = MemoryTokens();
+    await enter(t, backend, storage);
+    await t.tap(find.byKey(const ValueKey('/activities')));
     await t.pumpAndSettle();
-    expect(find.text('Tersedia pada Tahap 2'), findsOneWidget);
-    await t.tap(find.text('Mengerti'));
+    await t.enterText(find.byType(TextField), 'missing');
+    await t.pump(const Duration(milliseconds: 400));
     await t.pumpAndSettle();
-    await t.tap(find.byTooltip('Menu lainnya'));
+    expect(
+      find.textContaining('Tidak ada aktivitas yang cocok'),
+      findsOneWidget,
+    );
+    expect(backend.requests.last.queryParameters['search'], 'missing');
+    await t.tap(find.byKey(const ValueKey('/results')));
     await t.pumpAndSettle();
-    await t.tap(find.text('Pusat Bantuan'));
+    await t.scrollUntilVisible(
+      find.text('Detail hasil aktivitas'),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await t.drag(find.byType(ListView).first, const Offset(0, -220));
     await t.pumpAndSettle();
-    expect(find.text('Panduan & metodologi FTEMation'), findsOneWidget);
-    expect(t.takeException(), isNull);
+    await t.tap(find.text('Detail hasil aktivitas'));
+    await t.pumpAndSettle();
+    expect(find.textContaining('Alasan: Alasan fixture'), findsOneWidget);
+    expect(find.byKey(const ValueKey('/overview')).hitTestable(), findsNothing);
+    await t.tap(find.byTooltip('Tutup detail'));
+    await t.pumpAndSettle();
   });
-  testWidgets(
-    'Analysis scenarios, result filtering and recommendation detail',
-    (t) async {
-      await enter(t);
-      await tab(t, '/analysis');
-      for (final status in [
-        'Dalam antrean',
-        'Sedang dianalisis',
-        'Dibatalkan',
-        'Gagal',
-        'Menunggu pembatalan',
-        'Selesai',
-      ]) {
-        final menu = find.byType(DropdownButtonFormField<String>).last;
-        await t.ensureVisible(menu);
-        await t.tap(menu);
-        await t.pumpAndSettle();
-        await t.tap(find.text(status).last);
-        await t.pumpAndSettle();
-        expect(t.takeException(), isNull);
-      }
-      await tab(t, '/results');
-      await t.scrollUntilVisible(
-        find.text('Low'),
-        150,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await t.ensureVisible(find.text('Low'));
-      await t.tap(find.text('Low'));
-      await t.pumpAndSettle();
-      await t.scrollUntilVisible(
-        find.text('Detail hasil aktivitas').first,
-        150,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await t.drag(find.byType(ListView).first, const Offset(0, -180));
-      await t.pumpAndSettle();
-      await t.tap(find.text('Detail hasil aktivitas').first);
-      await t.pumpAndSettle();
-      expect(find.text('Rekomendasi ilustratif'), findsOneWidget);
-      expect(t.takeException(), isNull);
-    },
-  );
-
-  testWidgets('Back returns to Overview and empty dataset has no fake result', (
+  testWidgets('Expired API session returns to login and clears workspace', (
     t,
   ) async {
-    await enter(t);
-    await tab(t, '/activities');
-    await t.binding.handlePopRoute();
+    final backend = FakeBackend();
+    final storage = MemoryTokens();
+    await enter(t, backend, storage);
+    final c = t.element(find.text('Dashboard assessment'));
+    final session = c.read<SessionState>();
+    final state = c.read<WorkspaceState>();
+    backend.valid = false;
+    state.select(1);
     await t.pumpAndSettle();
-    expect(find.text('Dashboard assessment'), findsOneWidget);
+    expect(session.authenticated, false);
+    expect(storage.value, isNull);
+    expect(state.activeId, isNull);
+    expect(find.text('Masuk'), findsOneWidget);
+  });
+  testWidgets('Dataset switch persists across navigation', (t) async {
+    final backend = FakeBackend();
+    final storage = MemoryTokens();
+    await enter(t, backend, storage);
     final state = t
         .element(find.text('Dashboard assessment'))
-        .read<DemoState>();
-    state.select('demo-3');
+        .read<WorkspaceState>();
+    state.select(2);
     await t.pumpAndSettle();
-    expect(find.textContaining('Belum ada aktivitas'), findsOneWidget);
-    await tab(t, '/results');
-    expect(find.textContaining('Belum ada hasil'), findsOneWidget);
-    await tab(t, '/activities');
-    expect(find.text('0 aktivitas ditampilkan'), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('/activities')));
+    await t.pumpAndSettle();
+    expect(backend.requests.last.path, '/api/imports/2/activities');
+    expect(state.activeId, 2);
+  });
+  testWidgets('Text scaling preserves login and workspace navigation', (
+    t,
+  ) async {
+    t.platformDispatcher.textScaleFactorTestValue = 1.6;
+    addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
+    final backend = FakeBackend();
+    final storage = MemoryTokens();
+    await enter(t, backend, storage);
+    await t.tap(find.byKey(const ValueKey('/activities')));
+    await t.pumpAndSettle();
     expect(t.takeException(), isNull);
+    expect(
+      find.byKey(const ValueKey('/overview')).hitTestable(),
+      findsOneWidget,
+    );
   });
 }

@@ -1,153 +1,134 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../core/demo/demo_data.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/widgets/workspace_widgets.dart';
+import '../../core/format.dart';
+import '../analysis/analysis_page.dart' show analysisStates;
+import '../datasets/workspace_state.dart';
 
 class OverviewPage extends StatelessWidget {
   const OverviewPage({super.key});
   @override
   Widget build(BuildContext context) {
-    final d = context.watch<DemoState>().active;
-    return PageBody(
-      title: 'Dashboard assessment',
-      subtitle: 'Kapasitas & peluang otomatisasi',
-      children: [
-        const Notice(
-          'DATA DEMO - Angka dan rekomendasi sintetis, bukan hasil DeepSeek.',
-        ),
-        if (d.activities.isEmpty)
-          const Notice('Belum ada aktivitas. Pilih dataset demo lain.')
-        else ...[
-          LayoutBuilder(
-            builder: (c, box) {
-              final metrics = [
-                ('Total workload', fte(d.total), 'FTE aktivitas tercatat'),
-                ('Estimasi saving', fte(d.saving), 'FTE kapasitas waktu'),
-                ('Karyawan', '${d.employees}', 'Dalam dataset aktif'),
-                (
-                  'Departemen',
-                  '${d.departments.length}',
-                  'Unit kerja tercatat',
-                ),
-              ];
-              return Wrap(
+    final state = context.watch<WorkspaceState>();
+    final s = state.summary;
+    return RefreshIndicator(
+      onRefresh: () async {
+        if (state.activeId != null) await state.select(state.activeId!);
+      },
+      child: PageBody(
+        title: 'Dashboard assessment',
+        subtitle: 'Kapasitas & peluang otomatisasi',
+        children: [
+          if (s == null && !state.loading)
+            const Notice('Pilih atau import dataset untuk melihat assessment.'),
+          if (s != null) ...[
+            Text(
+              'Status terbaru: ${analysisStates[s['analysis_status']] ?? 'Belum dimulai'} - Sumber KPI: ${s['analysis_run_id'] == null ? 'baseline' : 'Run #${s['analysis_run_id']}'}',
+            ),
+            const SizedBox(height: 16),
+            LayoutBuilder(
+              builder: (context, box) => Wrap(
                 spacing: 12,
-                children: metrics.indexed
-                    .map(
-                      (entry) => SizedBox(
-                        width: box.maxWidth >= 340
-                            ? (box.maxWidth - 12) / 2
-                            : box.maxWidth,
-                        child: Panel(
-                          accent: entry.$1 == 1,
-                          child: DefaultTextStyle(
-                            style: TextStyle(
-                              color: entry.$1 == 1
-                                  ? Colors.white
-                                  : AppColors.navy,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(entry.$2.$1),
-                                const SizedBox(height: 12),
-                                Text(
-                                  entry.$2.$2,
-                                  style: const TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.w700,
+                children:
+                    [
+                          ('Total workload', number(s['total_fte'])),
+                          (
+                            'Estimasi saving',
+                            number(s['estimated_fte_saving']),
+                          ),
+                          ('Aktivitas', '${s['activities_count']}'),
+                          ('Karyawan', '${s['employees_count']}'),
+                          ('Departemen', '${s['departments_count']}'),
+                        ]
+                        .map(
+                          (v) => SizedBox(
+                            width: box.maxWidth >= 340
+                                ? (box.maxWidth - 12) / 2
+                                : box.maxWidth,
+                            child: Panel(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(v.$1),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    v.$2,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineMedium,
                                   ),
-                                ),
-                                Text(
-                                  entry.$2.$3,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    )
-                    .toList(),
-              );
-            },
-          ),
-          Panel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'FTE per departemen',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 4),
-                const Text('Perbandingan workload - snapshot demo'),
-                const SizedBox(height: 20),
-                ...d.departments.map((name) {
-                  final total = d.activities
-                      .where((a) => a.department == name)
-                      .fold(0.0, (sum, a) => sum + a.fte);
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('$name - ${fte(total)} FTE'),
-                        const SizedBox(height: 8),
-                        Semantics(
-                          label: '$name ${fte(total)} FTE',
-                          child: LinearProgressIndicator(
-                            value: total / d.total,
-                            minHeight: 10,
-                            borderRadius: BorderRadius.circular(8),
-                            color: AppColors.primary,
-                            backgroundColor: AppColors.canvas,
+                        )
+                        .toList(),
+              ),
+            ),
+            Panel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'FTE per departemen',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  for (final d in s['departments'] as List)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${d['department']} - ${number(d['total_fte'])} FTE',
                           ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ],
-            ),
-          ),
-          Panel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Peluang otomatisasi',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                ...d.activities
-                    .where((a) => a.level == 'High')
-                    .take(3)
-                    .map(
-                      (a) => ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(a.name),
-                        subtitle: Text(
-                          '${a.department} - ${fte(a.saving)} FTE saving',
-                        ),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => context.go('/results'),
+                          const SizedBox(height: 8),
+                          LinearProgressIndicator(
+                            value: num.parse('${s['total_fte']}') > 0
+                                ? (num.parse('${d['total_fte']}') /
+                                          num.parse('${s['total_fte']}'))
+                                      .clamp(0, 1)
+                                      .toDouble()
+                                : 0,
+                          ),
+                        ],
                       ),
                     ),
-                TextButton(
-                  onPressed: () => context.go('/results'),
-                  child: const Text('Lihat seluruh hasil'),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+            Panel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Peluang otomatisasi',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  if ((s['top_opportunities'] as List).isEmpty)
+                    const Text('Belum ada completed run.'),
+                  for (final a in s['top_opportunities'] as List)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text('${a['activity_name']}'),
+                      subtitle: Text(
+                        '${a['recommendation']}\n${number(a['estimated_fte_saving'])} FTE saving',
+                      ),
+                    ),
+                  Text(
+                    'Distribusi otomatisasi: ${s['automation_levels'] ?? 'Belum tersedia'}',
+                  ),
+                ],
+              ),
+            ),
+            for (final warning in s['warnings'] as List) Notice('$warning'),
+          ],
           const Notice(
             'Saving adalah estimasi kapasitas waktu, bukan realisasi efisiensi atau keputusan pengurangan karyawan.',
           ),
         ],
-      ],
+      ),
     );
   }
 }

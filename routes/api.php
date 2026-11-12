@@ -3,9 +3,14 @@
 use App\Http\Controllers\AnalysisController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ImportController;
+use App\Http\Controllers\MobileAuthController;
+use App\Http\Middleware\WorkloadTokenAbility;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::post('/mobile/login', [MobileAuthController::class, 'login'])->middleware('throttle:login');
+
+Route::middleware(['auth:sanctum', WorkloadTokenAbility::class])->group(function () {
+    Route::post('/mobile/logout', [MobileAuthController::class, 'logout']);
     Route::get('/imports/{import}/analyses', [AnalysisController::class, 'index']);
     Route::post('/imports/{import}/analyses', [AnalysisController::class, 'store'])->middleware('throttle:10,1');
     Route::get('/analyses/{run}', [AnalysisController::class, 'show']);

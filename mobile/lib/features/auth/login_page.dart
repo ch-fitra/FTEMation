@@ -1,12 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+import 'session_state.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/brand.dart';
 
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
+  @override
+  State<LoginPage> createState() => _LoginState();
+}
+
+class _LoginState extends State<LoginPage> {
+  final username = TextEditingController(), password = TextEditingController();
+  final form = GlobalKey<FormState>();
+  bool obscure = true;
+  @override
+  void dispose() {
+    username.dispose();
+    password.dispose();
+    super.dispose();
+  }
+
+  Future<void> submit() async {
+    if (!form.currentState!.validate()) return;
+    await context.read<SessionState>().login(username.text, password.text);
+    if (mounted) password.clear();
+  }
+
   @override
   Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
     value: SystemUiOverlayStyle.light,
@@ -44,24 +67,74 @@ class LoginPage extends StatelessWidget {
                       color: AppColors.surface,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Selamat datang',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Mode preview UI - Tahap 1\nAutentikasi server akan diintegrasikan pada Tahap 2. Tidak perlu username atau password.',
-                        ),
-                        const SizedBox(height: 24),
-                        FilledButton.icon(
-                          onPressed: () => context.go('/overview'),
-                          icon: const Icon(Icons.arrow_forward),
-                          label: const Text('Masuk ke Demo UI'),
-                        ),
-                      ],
+                    child: Form(
+                      key: form,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Selamat datang',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: username,
+                            decoration: const InputDecoration(
+                              labelText: 'Username',
+                            ),
+                            autocorrect: false,
+                            validator: (v) => v == null || v.trim().isEmpty
+                                ? 'Isi username.'
+                                : null,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: password,
+                            obscureText: obscure,
+                            enableSuggestions: false,
+                            autocorrect: false,
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              suffixIcon: IconButton(
+                                tooltip: 'Tampilkan atau sembunyikan password',
+                                onPressed: () =>
+                                    setState(() => obscure = !obscure),
+                                icon: Icon(
+                                  obscure
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
+                                ),
+                              ),
+                            ),
+                            validator: (v) =>
+                                v == null || v.isEmpty ? 'Isi password.' : null,
+                            onFieldSubmitted: (_) {
+                              if (!context.read<SessionState>().busy) submit();
+                            },
+                          ),
+                          if (context.watch<SessionState>().error
+                              case final String error)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: Text(
+                                error,
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          const SizedBox(height: 24),
+                          FilledButton.icon(
+                            onPressed: context.watch<SessionState>().busy
+                                ? null
+                                : submit,
+                            icon: const Icon(Icons.login),
+                            label: Text(
+                              context.watch<SessionState>().busy
+                                  ? 'Sedang masuk...'
+                                  : 'Masuk',
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),

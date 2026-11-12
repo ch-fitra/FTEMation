@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../core/demo/demo_data.dart';
 import '../../core/widgets/workspace_widgets.dart';
+import '../../core/format.dart';
 
 void showActivityDetail(
   BuildContext context,
-  DemoActivity a, {
+  Map<String, dynamic> a, {
   bool result = false,
 }) => showModalBottomSheet<void>(
   context: context,
@@ -15,9 +15,9 @@ void showActivityDetail(
   showDragHandle: true,
   builder: (c) => DraggableScrollableSheet(
     expand: false,
-    initialChildSize: 0.75,
-    minChildSize: 0.4,
-    maxChildSize: 0.95,
+    initialChildSize: .75,
+    minChildSize: .4,
+    maxChildSize: .95,
     builder: (c, controller) => SingleChildScrollView(
       controller: controller,
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
@@ -32,25 +32,27 @@ void showActivityDetail(
               icon: const Icon(Icons.close),
             ),
           ),
-          Text(a.name, style: Theme.of(c).textTheme.titleLarge),
-          const SizedBox(height: 8),
-          Text('${a.id} - DATA DEMO'),
+          Text(
+            '${a['activity_name']}',
+            style: Theme.of(c).textTheme.titleLarge,
+          ),
+          Text('${a['activity_id'] ?? a['activity_code']}'),
           const Divider(height: 32),
           Text(
-            'Karyawan: ${a.employee}\nDepartemen: ${a.department}\nFrekuensi: ${a.frequency}\nDurasi per unit: ${a.duration} menit\nWorkload: ${fte(a.fte)} FTE',
+            'Karyawan: ${a['employee_name'] ?? a['employee']?['name']}\nDepartemen: ${a['department'] ?? a['employee']?['department']}\nFrekuensi: ${a['frequency']}\nVolume: ${a['volume']}\nDurasi: ${a['duration_minutes']} menit\nWorkload: ${number(a['fte'])} FTE',
           ),
+          Text('${a['description'] ?? ''}'),
           if (result) ...[
-            const SizedBox(height: 20),
-            LevelBadge(a.level),
-            const SizedBox(height: 16),
+            LevelBadge('${a['automation_level']}'),
+            Text('Alasan: ${a['reason']}'),
+            Text('Rekomendasi: ${a['recommendation']}'),
+            Text('Risiko: ${a['risk_level']} - Effort: ${a['effort_level']}'),
+            Text('Saving: ${number(a['estimated_fte_saving'])} FTE'),
             Text(
-              'Rekomendasi ilustratif',
-              style: Theme.of(c).textTheme.titleMedium,
+              'Kontrol manusia: ${a['oversight_required'] == true ? 'Diperlukan' : 'Lihat catatan exception'}\n${a['oversight_note'] ?? ''}',
             ),
-            Text(a.recommendation),
-            const SizedBox(height: 12),
             Text(
-              'Estimasi saving: ${fte(a.saving)} FTE\nKontrol manusia: review pengecualian dan keputusan final.\nKlasifikasi ini hanya fixture UI, bukan hasil inference.',
+              'Faktor: ${a['factors']}\nScope: ${a['automation_scope']}\nGrup: ${a['group_name']}',
             ),
           ],
         ],

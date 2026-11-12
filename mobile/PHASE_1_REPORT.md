@@ -116,3 +116,8 @@ Tidak ada blocker Tahap 1 yang diketahui dari pemeriksaan ini. Batas verifikasi:
 - [ ] Export hanya completed run lengkap; hasil JSON dihasilkan aplikasi Laravel.
 - [ ] Uji ownership, logout, kegagalan jaringan dan regresi web tanpa inference berbayar tidak diotorisasi.
 - [ ] Finalisasi review visual brand, aksesibilitas/TalkBack, font scaling, lifecycle dan signing release.
+
+
+## Catatan transisi Tahap 2 (12 November 2026)
+
+Bukti Tahap 1 di atas tetap historis. Entry point normal kini memakai autentikasi dan API Laravel, sehingga instruksi masuk Demo UI tidak berlaku untuk kode terbaru. Integration test perangkat diperbarui menjadi perjalanan API fixture terisolasi. Tidak ada klaim bahwa bukti HP Tahap 1 memverifikasi autentikasi atau integrasi Tahap 2. Lihat PHASE_2_REPORT.md dan README mobile terbaru.

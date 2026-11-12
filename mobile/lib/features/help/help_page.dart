@@ -10,12 +10,12 @@ class HelpPage extends StatelessWidget {
     subtitle: 'Panduan & metodologi FTEMation',
     children: [
       const Notice(
-        'FTEMation membantu assessment beban kerja dan peluang otomatisasi. Versi mobile ini adalah preview UI Tahap 1.',
+        'FTEMation membantu assessment beban kerja dan peluang otomatisasi. Data dan hasil berasal dari Laravel.',
       ),
       ...const <(String, String)>[
         (
           'Bagaimana memulai?',
-          'Pilih dataset pada Import Dataset. Buka Overview, tinjau Data Aktivitas, lalu jelajahi skenario Analisis AI dan detail Hasil Analisis. Semua data bertanda demo.',
+          'Pilih dataset pada Import Dataset. Buka Overview, tinjau Data Aktivitas, lalu tinjau status Analisis AI dan detail Hasil Analisis. Analisis baru memerlukan konfirmasi biaya.',
         ),
         (
           'Apa arti High, Medium, Low?',
@@ -31,11 +31,11 @@ class HelpPage extends StatelessWidget {
         ),
         (
           'Bagaimana cancel / resume bekerja?',
-          'Pada integrasi server, hasil sukses dipertahankan. Request yang sudah diterima provider dapat tetap memakai saldo. Resume melanjutkan bagian belum sukses pada run dan snapshot yang sama.',
+          'Hasil sukses dipertahankan. Request yang sudah diterima provider dapat tetap memakai saldo. Resume melanjutkan bagian belum sukses pada run dan snapshot yang sama.',
         ),
         (
           'Informasi aplikasi',
-          'FTEMation Mobile 1.0.0+1 - Flutter Android - UI prototype Tahap 1. Tidak ada koneksi server atau AI; data sintetis, bukan database produksi.',
+          'FTEMation Mobile 1.0.0+1 - Flutter Android - REST API Laravel. AI hanya diakses oleh backend.',
         ),
       ].map(
         (entry) => Panel(

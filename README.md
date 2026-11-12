@@ -1,4 +1,4 @@
-﻿# FTEMation
+ï»¿# FTEMation
 
 Aplikasi assessment workload: import Excel, perhitungan FTE, analisis DeepSeek, grouping lintas departemen, dashboard, prioritas, dan export JSON/Excel/PDF.
 
@@ -216,7 +216,7 @@ Overview menampilkan KPI dan tiga prioritas dari completed run yang sama. Pemili
 
 Jalankan `node scripts/review-ui-ux.mjs` dengan server lokal aktif dan Playwright/Chrome tersedia pada folder sementara `ftemation-ui-review`. Skrip memakai respons API sintetis terisolasi, memblokir seluruh mutasi API, memeriksa enam breakpoint serta race pergantian dataset, dan menyimpan screenshot di `storage/framework/testing/ui-ux/`. Tidak menjalankan inference. Lihat [laporan UI/UX](docs/UI_UX_REFINEMENT_REPORT.md) dan [panduan desain](docs/UI_DESIGN.md).
 
-Audit responsif delapan viewport (320–2560px): `node scripts/review-responsive.mjs` dan `node scripts/review-responsive.mjs --stress`. Keduanya memakai API sintetis, memblokir mutasi, dan menguji login, seluruh halaman workspace, dropdown/keyboard, tabel, lima tampilan hasil, dialog serta Q&A. `node scripts/review-header-loading.mjs` memeriksa stabilitas header saat loading, refresh dan navigasi. Lihat [laporan responsivitas](docs/RESPONSIVE_UI_REVIEW.md); screenshot dan audit tersimpan di `storage/framework/testing/responsive/` serta `responsive-stress/`.
+Audit responsif delapan viewport (320â€“2560px): `node scripts/review-responsive.mjs` dan `node scripts/review-responsive.mjs --stress`. Keduanya memakai API sintetis, memblokir mutasi, dan menguji login, seluruh halaman workspace, dropdown/keyboard, tabel, lima tampilan hasil, dialog serta Q&A. `node scripts/review-header-loading.mjs` memeriksa stabilitas header saat loading, refresh dan navigasi. Lihat [laporan responsivitas](docs/RESPONSIVE_UI_REVIEW.md); screenshot dan audit tersimpan di `storage/framework/testing/responsive/` serta `responsive-stress/`.
 
 
 Pemeriksaan Hasil AI pada Hasil analisis menampilkan kandidat `consistency_review` sebagai daftar kategori dengan jumlah aktivitas dan variasi level. Tiga kelompok ditampilkan lebih dahulu; tombol lihat semua membuka daftar lengkap. Detail kelompok menampilkan seluruh aktivitas, alasan klasifikasi, dan faktor yang tersedia dalam satu dialog. Label kategori bahasa Indonesia hanya untuk tampilan; hasil, ID kategori, serta logika backend tetap sama. Perbedaan level belum tentu kesalahan AI.
@@ -251,3 +251,8 @@ Halaman Analisis AI menyediakan **Batalkan Analisis** untuk run queued/processin
 Migrasi additive `2026_11_12_000001_add_analysis_cancellation_metadata` diperlukan pada instalasi lain; restart worker setelah kode dan migrasi tersedia. Job lama kompatibel dengan versi 0 dan tidak dihapus manual. Endpoint cancel/resume memakai session/ownership dan `execution_version` untuk menolak aksi stale. Detail state, perlindungan race, dan batas request in-flight: [panduan pembatalan](docs/ANALYSIS_CANCELLATION.md).
 
 Tes browser tanpa inference/mutasi nyata: `node scripts/review-analysis-cancellation.mjs`. Artefak desktop/mobile berada di `storage/framework/testing/analysis-cancellation/`. Jalankan juga tes Laravel, build/lint frontend, serta skrip regresi queue/navigasi yang sudah ada.
+
+
+## Flutter Android
+
+Client Android Tahap 2 berada di `mobile/`, memakai REST API backend yang sama dengan token Sanctum per perangkat; React tetap session/cookie. Lihat [panduan mobile](mobile/README.md) dan [laporan verifikasi Tahap 2](mobile/PHASE_2_REPORT.md). Migration token additive belum diterapkan pada database aktual; verifikasi backup/target terlebih dahulu. Demo akun nyata masih menunggu kredensial smoke yang cocok dan pengujian HP. Tidak menyalakan worker atau inference berbayar untuk tes.

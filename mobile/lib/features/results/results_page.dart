@@ -1,9 +1,15 @@
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/demo/demo_data.dart';
 import '../../core/widgets/workspace_widgets.dart';
+import '../datasets/workspace_state.dart';
+import '../analysis/run_state.dart';
+import '../analysis/analysis_page.dart';
 import '../activities/activity_detail.dart';
+import '../../core/format.dart';
 
 class ResultsPage extends StatefulWidget {
   const ResultsPage({super.key});
@@ -12,69 +18,112 @@ class ResultsPage extends StatefulWidget {
 }
 
 class _ResultsState extends State<ResultsPage> {
+  RunState? runs;
   String level = 'Semua';
-  int run = 1;
+  bool exporting = false;
+  String? exportMessage;
+  @override
+  void initState() {
+    super.initState();
+    final state = context.read<WorkspaceState>();
+    if (state.activeId != null) {
+      runs = RunState(state.repository, state.activeId!);
+      runs!.active = false;
+      runs!.addListener(update);
+      runs!.load(preferCompleted: true);
+    }
+  }
+
+  void update() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    runs?.removeListener(update);
+    runs?.dispose();
+    super.dispose();
+  }
+
+  Future<void> export(String format) async {
+    final id = runs!.selectedId!;
+    setState(() {
+      exporting = true;
+      exportMessage = null;
+    });
+    try {
+      final file = await runs!.repository.export(id, format);
+      if (!mounted) return;
+      final uri = await FilePicker.saveFile(
+        fileName: file.name,
+        bytes: Uint8List.fromList(file.bytes),
+        mimeType: file.mime,
+      );
+      if (mounted) {
+        setState(
+          () => exportMessage = uri == null
+              ? 'Penyimpanan dibatalkan.'
+              : 'File berhasil disimpan melalui pemilih lokasi Android.',
+        );
+      }
+    } catch (e) {
+      if (mounted) setState(() => exportMessage = '$e');
+    }
+    if (mounted) setState(() => exporting = false);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final d = context.watch<DemoState>().active;
-    return PageBody(
-      title: 'Hasil analisis AI',
-      subtitle: 'Rekomendasi & detail hasil ilustratif',
-      children: [
-        const Notice(
-          'Klasifikasi dan rekomendasi adalah data demo, bukan hasil penilaian DeepSeek.',
-        ),
-        if (d.activities.isEmpty)
-          const Notice('Belum ada hasil untuk dataset kosong ini.')
-        else ...[
-          DropdownButtonFormField<int>(
-            initialValue: run,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Riwayat snapshot demo',
-            ),
-            items: const [
-              DropdownMenuItem(
-                value: 1,
-                child: Text('Snapshot 1 - Selesai - Demo'),
-              ),
-              DropdownMenuItem(
-                value: 2,
-                child: Text('Snapshot 2 - Dibatalkan - Demo'),
-              ),
-            ],
-            onChanged: (v) => setState(() => run = v!),
-          ),
-          const SizedBox(height: 16),
-          if (run == 2)
-            const Notice(
-              'Snapshot dibatalkan. Hasil final dan export belum tersedia.',
-            )
-          else ...[
-            Panel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Ringkasan dataset',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${d.employees} karyawan - ${d.departments.length} departemen',
-                  ),
-                  ...d.departments.map(
-                    (dept) => Text(
-                      '$dept: ${d.activities.where((a) => a.department == dept).map((a) => a.employee).toSet().join(', ')}',
+    final r = runs?.selected;
+    final report = r?['report'];
+    return RefreshIndicator(
+      onRefresh: () async {
+        await runs?.load();
+      },
+      child: PageBody(
+        title: 'Hasil analisis AI',
+        subtitle: 'Rekomendasi & snapshot Laravel',
+        children: [
+          if (runs?.loading == true) const LinearProgressIndicator(),
+          if (runs?.error != null) Notice(runs!.error!),
+          if (runs != null && runs!.history.isNotEmpty)
+            DropdownButtonFormField<int>(
+              key: ValueKey(runs!.selectedId),
+              initialValue: runs!.selectedId,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Riwayat run'),
+              items: runs!.history
+                  .map(
+                    (v) => DropdownMenuItem(
+                      value: v['id'] as int,
+                      child: Text(
+                        'Run #${v['id']} - ${analysisStates[v['status']] ?? v['status']}',
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  )
+                  .toList(),
+              onChanged: exporting
+                  ? null
+                  : (v) {
+                      level = 'Semua';
+                      exportMessage = null;
+                      runs!.choose(v!);
+                    },
             ),
+          const SizedBox(height: 16),
+          if (report == null)
+            const Notice(
+              'Hasil final dan export tersedia setelah seluruh aktivitas serta kesimpulan selesai.',
+            ),
+          if (r != null)
+            Text(
+              'Dataset #${r['import_id']} - Run #${r['id']} - ${analysisStates[r['status']]}\nModel: ${r['actual_model'] ?? r['model_name']} - Prompt: ${r['prompt_version']}\n${r['progress']?['success'] ?? 0} / ${r['total']} aktivitas sukses',
+            ),
+          if (report != null) ...[
+            const SizedBox(height: 12),
             Wrap(
               spacing: 8,
-              runSpacing: 8,
-              children: ['Semua', 'High', 'Medium', 'Low']
+              children: ['Semua', 'high', 'medium', 'low']
                   .map(
                     (l) => ChoiceChip(
                       label: Text(l),
@@ -85,41 +134,67 @@ class _ResultsState extends State<ResultsPage> {
                   .toList(),
             ),
             const SizedBox(height: 16),
-            ...d.activities
-                .where((a) => level == 'Semua' || a.level == level)
-                .map(
-                  (a) => Panel(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        LevelBadge(a.level),
-                        const SizedBox(height: 8),
-                        Text(
-                          a.name,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        Text('${a.employee} - ${a.department}'),
-                        const SizedBox(height: 12),
-                        Text(a.recommendation),
-                        TextButton(
-                          onPressed: () =>
-                              showActivityDetail(context, a, result: true),
-                          child: const Text('Detail hasil aktivitas'),
-                        ),
-                      ],
+            for (final a in (report['activities'] as List).where(
+              (a) => level == 'Semua' || a['automation_level'] == level,
+            ))
+              Panel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    LevelBadge('${a['automation_level']}'),
+                    Text(
+                      '${a['activity_name']}',
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                  ),
+                    Text('${a['employee_name']} - ${a['department']}'),
+                    Text('${a['reason']}'),
+                    Text('${a['recommendation']}'),
+                    Text('${number(a['estimated_fte_saving'])} FTE saving'),
+                    TextButton(
+                      onPressed: () => showActivityDetail(
+                        context,
+                        Map<String, dynamic>.from(a),
+                        result: true,
+                      ),
+                      child: const Text('Detail hasil aktivitas'),
+                    ),
+                  ],
                 ),
-            if (!d.activities.any((a) => level == 'Semua' || a.level == level))
-              const Notice('Tidak ada hasil pada klasifikasi ini.'),
-            OutlinedButton.icon(
-              onPressed: () => integrationNotice(context),
-              icon: const Icon(Icons.file_download_outlined),
-              label: const Text('Informasi export'),
+              ),
+            for (final section in ['employees', 'departments'])
+              ExpansionTile(
+                title: Text(
+                  section == 'employees'
+                      ? 'Ringkasan karyawan'
+                      : 'Ringkasan departemen',
+                ),
+                children: [
+                  for (final e in report[section] as List)
+                    ListTile(
+                      title: Text('${e['employee_name'] ?? e['department']}'),
+                      subtitle: Text(
+                        '${number(e['total_fte'])} FTE - ${number(e['estimated_fte_saving'])} saving\n${e['summary'] ?? ''}\n${e['opportunities'] ?? ''}\n${e['oversight_note'] ?? ''}',
+                      ),
+                    ),
+                ],
+              ),
+            Wrap(
+              spacing: 8,
+              children: ['pdf', 'xlsx', 'json']
+                  .map(
+                    (f) => OutlinedButton.icon(
+                      onPressed: exporting ? null : () => export(f),
+                      icon: const Icon(Icons.file_download_outlined),
+                      label: Text('Simpan ${f.toUpperCase()}'),
+                    ),
+                  )
+                  .toList(),
             ),
+            if (exporting) const LinearProgressIndicator(),
+            if (exportMessage != null) Notice(exportMessage!),
           ],
         ],
-      ],
+      ),
     );
   }
 }

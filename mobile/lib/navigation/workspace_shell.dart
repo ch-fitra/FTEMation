@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+import '../features/auth/session_state.dart';
 
 import '../core/theme/app_theme.dart';
 import '../core/widgets/brand.dart';
@@ -32,17 +35,17 @@ class WorkspaceShell extends StatelessWidget {
                   showAboutDialog(
                     context: context,
                     applicationName: 'FTEMation Mobile',
-                    applicationVersion: '1.0.0 - Demo Tahap 1',
+                    applicationVersion: '1.0.0 - Integrasi Laravel',
                     children: [
                       const Text(
-                        'Data sintetis. Tidak terhubung ke Laravel atau DeepSeek.',
+                        'Data assessment berasal dari Laravel. Keputusan tetap di tangan manusia.',
                       ),
                     ],
                   );
                 } else if (v == 'help') {
                   context.push('/help');
                 } else {
-                  context.go('/login');
+                  context.read<SessionState>().logout();
                 }
               },
               itemBuilder: (_) => const [
@@ -53,13 +56,31 @@ class WorkspaceShell extends StatelessWidget {
                 ),
                 PopupMenuItem(
                   value: 'login',
-                  child: Text('Kembali ke login preview'),
+                  child: Text('Keluar dari perangkat'),
                 ),
               ],
             ),
           ],
         ),
-        body: SafeArea(top: false, bottom: false, child: child),
+        body: SafeArea(
+          top: false,
+          bottom: false,
+          child: Column(
+            children: [
+              if (context.watch<SessionState>().error case final String error)
+                MaterialBanner(
+                  content: Text(error),
+                  actions: [
+                    TextButton(
+                      onPressed: () => context.read<SessionState>().logout(),
+                      child: const Text('Coba logout lagi'),
+                    ),
+                  ],
+                ),
+              Expanded(child: child),
+            ],
+          ),
+        ),
         bottomNavigationBar: SafeArea(
           top: false,
           child: Container(

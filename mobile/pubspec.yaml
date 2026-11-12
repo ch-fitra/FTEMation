@@ -1,5 +1,5 @@
 name: ftemation_mobile
-description: FTEMation Android UI prototype with synthetic workload data.
+description: FTEMation Android client for the Laravel workload assessment API.
 publish_to: none
 version: 1.0.0+1
 environment:
@@ -10,6 +10,9 @@ dependencies:
   provider: ^6.1.5+1
   go_router: ^18.1.4
   flutter_svg: ^2.3.4
+  dio: ^5.11.1
+  flutter_secure_storage: ^11.2.0
+  file_picker: ^13.3.3
 dev_dependencies:
   flutter_test:
     sdk: flutter

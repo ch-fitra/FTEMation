@@ -1,15 +1,16 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
+import { parseEnv } from 'node:util'
 
 // Run against the existing local app. --import adds one real import to ftemation.
 // Without --import, this is read-only for workload data (login sessions still change).
 const base = process.env.SMOKE_BASE_URL ?? 'http://localhost:8000'
 const origin = process.env.SMOKE_ORIGIN ?? base
 if (!['localhost', '127.0.0.1'].includes(new URL(base).hostname)) throw new Error('Smoke test only supports a local server.')
-const env = await readFile(new URL('../.env', import.meta.url), 'utf8')
-const value = key => process.env[key] ?? env.match(new RegExp(`^${key}=(.*)$`, 'm'))?.[1].trim().replace(/^(["'])(.*)\1$/, '$2')
-const credentials = { username: value('DEMO_USERNAME'), password: value('DEMO_PASSWORD') }
-if (!credentials.username || !credentials.password) throw new Error('Set DEMO_USERNAME and DEMO_PASSWORD in .env.')
+const env = parseEnv(await readFile(new URL('../.env', import.meta.url), 'utf8'))
+const value = key => process.env[key] ?? env[key]
+const credentials = { username: value('SMOKE_USERNAME') || value('DEMO_USERNAME'), password: value('SMOKE_PASSWORD') || value('DEMO_PASSWORD') }
+if (!credentials.username || !credentials.password) throw new Error('Set SMOKE_USERNAME and SMOKE_PASSWORD to an authorized existing account in .env.')
 const cookies = new Map()
 let checks = 0
 async function request(path, { method = 'GET', json, body, csrf = true } = {}) {
@@ -31,7 +32,7 @@ status(await request('/sanctum/csrf-cookie'), 204, 'CSRF cookie issued')
 assert(cookies.has('XSRF-TOKEN')); checks++
 status(await request('/api/login', { method: 'POST', json: { ...credentials, password: 'deliberately-wrong' } }), 422, 'invalid credentials rejected')
 const login = await request('/api/login', { method: 'POST', json: credentials })
-status(login, 200, 'demo login via session cookie')
+status(login, 200, 'authorized account login via session cookie')
 assert(!('password' in login.data.user) && !('token' in login.data)); checks++
 status(await request('/api/user'), 200, 'authenticated session recognized')
 const history = await request('/api/imports'); status(history, 200, 'private import history')
