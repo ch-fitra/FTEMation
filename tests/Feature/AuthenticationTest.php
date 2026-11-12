@@ -18,7 +18,7 @@ class AuthenticationTest extends TestCase
         config(['ftemation.demo_password' => 'admin123']);
         $this->seed(DemoUserSeeder::class);
         $user = User::firstOrFail();
-        $this->assertSame('admin123', $user->password);
+        $this->assertTrue(Hash::check('admin123', $user->password));
         $response = $this->postJson('/api/login', ['username' => $user->username, 'password' => 'admin123']);
         $response->assertJsonPath('user.name', 'Demo')->assertJsonPath('user.username', 'akun demo');
         $response->assertOk()->assertJsonPath('user.email', $user->email)->assertJsonMissingPath('user.password')->assertJsonMissingPath('token');
@@ -28,7 +28,7 @@ class AuthenticationTest extends TestCase
         $this->assertGuest('web');
     }
 
-    public function test_existing_hash_is_preserved_on_failure_and_converted_after_success(): void
+    public function test_existing_hash_is_preserved_on_failure_and_success(): void
     {
         $user = User::factory()->create(['password' => Hash::make('Legacy-Password!')]);
         $hashed = $user->password;
@@ -39,7 +39,7 @@ class AuthenticationTest extends TestCase
             ->assertUnprocessable();
         $this->postJson('/api/login', ['username' => $user->username, 'password' => 'Legacy-Password!'])
             ->assertOk()->assertJsonMissingPath('user.password');
-        $this->assertSame('Legacy-Password!', $user->fresh()->password);
+        $this->assertSame($hashed, $user->fresh()->password);
     }
 
     public function test_password_edited_directly_in_database_is_used_for_login(): void
@@ -50,7 +50,8 @@ class AuthenticationTest extends TestCase
         $this->postJson('/api/login', ['username' => $user->username, 'password' => 'Changed-Password!'])
             ->assertOk()->assertJsonMissingPath('user.password');
         $this->getJson('/api/user')->assertOk()->assertJsonMissingPath('user.password');
-        $this->assertSame('Changed-Password!', $user->fresh()->password);
+        $this->assertNotSame('Changed-Password!', $user->fresh()->password);
+        $this->assertTrue(Hash::check('Changed-Password!', $user->fresh()->password));
     }
 
     public function test_guest_cannot_access_private_endpoints(): void
@@ -60,6 +61,30 @@ class AuthenticationTest extends TestCase
         $this->postJson('/api/imports')->assertUnauthorized();
         $this->getJson('/api/imports/1')->assertUnauthorized();
         $this->getJson('/api/imports/1/activities')->assertUnauthorized();
+    }
+
+    public function test_legacy_plaintext_is_only_upgraded_after_valid_login_and_hash_is_not_a_password(): void
+    {
+        $user = User::factory()->create();
+        DB::table('users')->where('id', $user->id)->update(['password' => 'Legacy-Plaintext!']);
+        $this->postJson('/api/login', ['username' => $user->username, 'password' => 'wrong'])->assertUnprocessable();
+        $this->assertSame('Legacy-Plaintext!', $user->fresh()->password);
+        $this->postJson('/api/login', ['username' => $user->username, 'password' => 'Legacy-Plaintext!'])->assertOk();
+        $hash = $user->fresh()->password;
+        $this->assertTrue(Hash::check('Legacy-Plaintext!', $hash));
+        $this->postJson('/api/logout')->assertOk();
+        $this->postJson('/api/login', ['username' => $user->username, 'password' => $hash])->assertUnprocessable();
+        $this->assertSame($hash, $user->fresh()->password);
+    }
+
+    public function test_password_upgrade_does_not_overwrite_a_concurrent_password_change(): void
+    {
+        $user = User::factory()->create();
+        DB::table('users')->where('id', $user->id)->update(['password' => 'Legacy-Plaintext!']);
+        $stale = $user->fresh();
+        $user->update(['password' => 'New-Password!']);
+        app('auth')->createUserProvider('users')->rehashPasswordIfRequired($stale, ['password' => 'Legacy-Plaintext!']);
+        $this->assertTrue(Hash::check('New-Password!', $user->fresh()->password));
     }
 
     public function test_wrong_password_does_not_authenticate(): void
@@ -109,6 +134,6 @@ class AuthenticationTest extends TestCase
         $this->assertSame($originalId, User::firstOrFail()->id);
         $this->assertSame('Demo', User::firstOrFail()->name);
         $this->assertSame('akun demo', User::firstOrFail()->username);
-        $this->assertSame('Test-Demo-2026!', User::first()->password);
+        $this->assertTrue(Hash::check('Test-Demo-2026!', User::first()->password));
     }
 }

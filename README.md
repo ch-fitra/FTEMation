@@ -34,7 +34,7 @@ php artisan ftemation:check-database
 composer dev
 ```
 
-Buka **http://localhost:8000/**. Build React disajikan oleh Laravel. Akun demo lokal: username `akun demo`, password `admin123`. Konfigurasi awal akun ada pada `DEMO_USERNAME`, `DEMO_NAME`, `DEMO_EMAIL`, `DEMO_PASSWORD` di `.env`. Seeder tidak mengganti password akun yang sudah ada. Sesuai permintaan pemilik, kolom `users.password` menyimpan password sebagai teks biasa dan dapat diedit langsung di database. Password tetap disembunyikan dari respons API. Hash lama dikonversi menjadi teks password setelah login berhasil; hash tidak bisa didekripsi. Penyimpanan ini membuat password terbaca oleh siapa pun yang memiliki akses database dan tidak cocok untuk penggunaan production.
+Buka **http://localhost:8000/**. Build React disajikan oleh Laravel. Akun demo lokal: username `akun demo`, password `admin123`. Konfigurasi awal akun ada pada `DEMO_USERNAME`, `DEMO_NAME`, `DEMO_EMAIL`, `DEMO_PASSWORD` di `.env`. Seeder tidak mengganti password akun yang sudah ada. Password baru disimpan sebagai hash. Akun plaintext lama tetap dapat login dan otomatis ditingkatkan menjadi hash setelah autentikasi berhasil; hash lama tidak pernah dikonversi menjadi plaintext. Jangan mengedit password langsung melalui SQL. Akun lama yang belum login masih memerlukan rotasi/peningkatan terkontrol sebelum production. Password disembunyikan dari respons API.
 
 Untuk mengembangkan frontend, jalankan terminal kedua:
 

@@ -15,7 +15,7 @@ class ReadablePasswordUserProvider extends EloquentUserProvider
             return false;
         }
 
-        // Existing bcrypt/Argon passwords remain usable until a successful login.
+        // Transitional compatibility only: legacy plaintext is upgraded on login.
         if (password_get_info($stored)['algoName'] !== 'unknown') {
             return password_verify($plain, $stored);
         }
@@ -25,9 +25,12 @@ class ReadablePasswordUserProvider extends EloquentUserProvider
 
     public function rehashPasswordIfRequired(Authenticatable $user, #[\SensitiveParameter] array $credentials, bool $force = false)
     {
-        // This application intentionally stores readable passwords, per owner request.
-        if ($user->getAuthPassword() !== $credentials['password']) {
-            $user->forceFill([$user->getAuthPasswordName() => $credentials['password']])->save();
+        $stored = $user->getAuthPassword();
+        if (password_get_info($stored)['algoName'] === 'unknown' || $force || $this->hasher->needsRehash($stored)) {
+            // Compare-and-swap avoids overwriting a concurrent password change.
+            $user->newQuery()->whereKey($user->getAuthIdentifier())
+                ->where($user->getAuthPasswordName(), $stored)
+                ->update([$user->getAuthPasswordName() => $this->hasher->make($credentials['password'])]);
         }
     }
 }
