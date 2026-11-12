@@ -31,9 +31,7 @@
     .metric {
         padding: 18px 16px;
     }
-    .metric-value > strong {
-        font-size: 32px;
-    }
+    .metric-value > strong {font-size:clamp(20px,calc(100cqi / var(--metric-length,6) * 1.65),32px);}
     .metric-heading .icon {
         display: none;
     }
@@ -176,9 +174,7 @@
         gap: 5px;
         flex-wrap: wrap;
     }
-    .metric-value > strong {
-        font-size: 31px;
-    }
+    .metric-value > strong {font-size:clamp(20px,calc(100cqi / var(--metric-length,6) * 1.65),31px);}
     .metric-value > span {
         font-size: 10px;
     }
@@ -329,3 +325,42 @@
         scroll-behavior: auto !important;
     }
 }
+
+/* Text supplied by datasets must wrap without widening grid or flex tracks. */
+.panel-heading > div,.analysis-filters > label,.analysis-toolbar > div,.metric-heading > span {min-width:0;}
+.panel-heading {flex-wrap:wrap;}
+.content :is(h2,h3,p,small,dt,dd),.imports-table td,.activity-cell > strong {overflow-wrap:anywhere;}
+.metric-value {flex-wrap:wrap;}
+.department-label strong {min-width:0;overflow-wrap:anywhere;}
+.methodology dl > div,.help-answer-content dl > div {gap:12px;flex-wrap:wrap;}
+.table-scroll:focus-visible {outline:3px solid var(--primary);outline-offset:3px;border-radius:4px;}
+.activity-register table {min-width:720px;}
+.analysis-results table {min-width:650px;}
+@media(max-width:1150px) {.table-hint {display:block;color:var(--muted);font-size:12px;margin:0 0 12px;}}
+@media(max-width:860px) {
+    .sidebar nav[aria-label] {grid-template-columns:repeat(3,minmax(0,1fr));}
+    .sidebar nav a {min-height:44px;white-space:normal;text-align:center;}
+    .sidebar-logout {min-height:44px;}
+    .content :is(button,.button) {min-height:44px;}
+    .content .text-button {padding-block:10px;}
+    .select-popup [role="option"] {min-height:44px;align-items:center;}
+    .content :is(input,select),.login-card input {font-size:16px;}
+    .activity-dialog-header .activity-dialog-close {width:44px;height:44px;min-height:44px;}
+    .activity-dialog-header > div {max-height:32dvh;overflow:auto;}
+    .activity-dialog-body {overflow-wrap:anywhere;}
+}
+@media(max-width:760px) {
+    .analysis-results .analysis-tabs {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;}
+    .analysis-results .analysis-tabs button {min-width:0;white-space:normal;font-size:12px;padding:10px 8px;}
+    .analysis-results .analysis-distribution {grid-column:1 / -1;margin:4px 0 0;justify-content:flex-start;flex-wrap:wrap;}
+    .analysis-cards article {padding:18px;}
+}
+@media(max-width:480px) {
+    .filters {grid-template-columns:minmax(0,1fr);}
+    .filters > label:first-child {grid-column:auto;}
+    .pagination {gap:8px;font-size:11px;}
+    .pagination button {padding-inline:9px;}
+    .analysis-page .analysis-toolbar {padding:18px;}
+    .session-dialog {padding:28px 20px;}
+}
+@media(max-width:359px) {.metrics {grid-template-columns:minmax(0,1fr);}.metric {min-height:128px;}}

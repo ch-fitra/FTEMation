@@ -1,5 +1,7 @@
 ﻿import type { RefObject } from "react";
 import { formatFte } from "../lib/format";
+import { useEffect, useRef } from "react";
+import Icon from "./Icon";
 import type { AnalysisActivity } from "../types/analysis";
 
 const factorLabels: Record<string, string> = {
@@ -13,9 +15,33 @@ export default function ActivityAnalysisDialog({ dialogRef, activity, savingRate
     savingRate?: number;
     onClose: () => void;
 }) {
-    return <dialog aria-label="Detail analisis aktivitas" className="activity-dialog" ref={dialogRef} onClose={onClose} onCancel={(event) => {
+    const closingAnimation = useRef<Animation | null>(null);
+    useEffect(() => () => closingAnimation.current?.cancel(), []);
+    function closeDetail() {
+        const dialog = dialogRef.current;
+        if (!dialog?.open || closingAnimation.current) return;
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            dialog.close();
+            return;
+        }
+        const animation = dialog.animate([
+            { opacity: 1, transform: "translateY(0) scale(1)" },
+            { opacity: 0, transform: "translateY(8px) scale(.98)" },
+        ], { duration: 140, easing: "ease-in", fill: "forwards" });
+        closingAnimation.current = animation;
+        void animation.finished.then(() => {
+            if (dialog.isConnected && dialog.open) dialog.close();
+            animation.cancel();
+            closingAnimation.current = null;
+        }).catch(() => { closingAnimation.current = null; });
+    }
+    return <dialog aria-label="Detail analisis aktivitas" className="activity-dialog" ref={dialogRef} onClose={() => {
+        closingAnimation.current?.cancel();
+        closingAnimation.current = null;
+        onClose();
+    }} onCancel={(event) => {
         event.preventDefault();
-        dialogRef.current?.close();
+        closeDetail();
     }}>
         <header className="activity-dialog-header">
             <div>
@@ -27,9 +53,9 @@ export default function ActivityAnalysisDialog({ dialogRef, activity, savingRate
                     </div>
                 </>}
             </div>
-            <button autoFocus onClick={() => dialogRef.current?.close()}>Tutup detail</button>
+            <button className="activity-dialog-close" type="button" autoFocus aria-label="Tutup detail" title="Tutup detail (Esc)" onClick={closeDetail}><Icon name="close" /></button>
         </header>
-        {activity && <article className="activity-dialog-body">
+        {activity && <article className="activity-dialog-body" tabIndex={0} aria-label="Isi detail analisis">
             <h3>Alasan klasifikasi</h3><p>{activity.reason}</p>
             <dl className="analysis-factors">{Object.entries(activity.factors).map(([key, value]) =>
                 <div key={key}><dt>{factorLabels[key] ?? key}</dt><dd>{value}</dd></div>)}</dl>

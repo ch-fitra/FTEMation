@@ -1,11 +1,13 @@
 import { createPortal } from "react-dom";
 import ActivityAnalysisDialog from "../components/ActivityAnalysisDialog";
+import Icon from "../components/Icon";
 import Select from "../components/Select";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import ErrorAlert from "../components/ErrorAlert";
 import { api, errorMessages } from "../lib/http";
 import { formatFte } from "../lib/format";
+import type { ImportItem, Summary } from "../types/workload";
 import type { AnalysisRun } from "../types/analysis";
 import "../styles/pages/analysis.css";
 
@@ -20,12 +22,16 @@ export default function AnalysisPage({
     importId,
     onComplete,
     model,
+    dataset,
+    summary,
     view = "process",
     headerTarget,
 }: {
     importId: number | null;
     onComplete: () => void;
     model?: string;
+    dataset?: ImportItem | null;
+    summary?: Summary | null;
     view?: "process" | "results";
     headerTarget?: HTMLElement | null;
 }) {
@@ -42,6 +48,7 @@ export default function AnalysisPage({
     function openDetail(id: string) {
         setParams({ dataset: String(importId), run: String(runId), activity: id });
     }
+    const [historyLoaded, setHistoryLoaded] = useState(false);
     const [history, setHistory] = useState<{ id: number; status: string }[]>(
         [],
     );
@@ -69,6 +76,7 @@ export default function AnalysisPage({
             .then(({ data }) => {
                 if (controller.signal.aborted) return;
                 setHistory(data);
+                setHistoryLoaded(true);
                 setRunId((id) =>
                     requestedRun > 0 ? requestedRun : data.some((r: { id: number }) => r.id === id)
                         ? id
@@ -119,7 +127,7 @@ export default function AnalysisPage({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [runId, version]);
     async function start(retry = false) {
-        if (!window.confirm("Analisis mengirim data aktivitas ke layanan AI dan dapat menggunakan saldo API. Lanjutkan?")) return;
+        if (!window.confirm(`${retry ? "Coba kembali analisis" : "Mulai analisis baru untuk"} ${dataset?.filename ?? `Dataset ${importId}`} (Dataset ${importId})? Data aktivitas akan dikirim ke AI dan dapat menggunakan saldo API.`)) return;
         setBusy(true);
         setErrors([]);
         try {
@@ -196,42 +204,46 @@ export default function AnalysisPage({
                 setParams(next, { replace: true });
             }} />
             {!resultsView && <section className="panel analysis-toolbar">
-                <div>
-                    <h2>Proses analisis dataset</h2>
-                    <p>
-                        {report ? `Hasil run ${runId}. Melihat hasil sebelumnya tidak membutuhkan request AI baru.` : `Penilaian teks menggunakan layanan DeepSeek${model ? ` (${model})` : ""}. FTE dan saving dihitung oleh Laravel.`}
-                    </p>
+                <div className="analysis-dataset-identity">
+                    <span className="eyebrow">DATASET YANG AKAN DIANALISIS</span>
+                    <h2>{dataset?.filename ?? `Dataset ${importId}`}</h2>
+                    <div className="analysis-dataset-facts">
+                        <span>Dataset {importId}</span>
+                        {summary && <><span>{summary.activities_count} aktivitas</span><span>{summary.employees_count} karyawan</span><span>{summary.departments_count} departemen</span></>}
+                    </div>
+                    <p>{active ? `Analisis ${runId} sedang berjalan untuk dataset ini.` : report ? "Analisis ulang membuat proses baru untuk dataset ini." : `Siap dianalisis dengan ${model ?? "DeepSeek"}.`}</p>
+                    <Link className="text-button" to="/imports">Pilih dataset lain ?</Link>
                 </div>
                 <button
                     className={report ? "secondary" : "primary"}
-                    disabled={busy || !!active}
+                    disabled={busy || !!active || !historyLoaded || (!!runId && !run)}
                     onClick={() => void start()}
                 >
                     {busy
                         ? "Memproses…"
                         : active
                           ? "Analisis berjalan"
-                          : report ? "Analisis Ulang" : "Mulai analisis"}
+                          : !historyLoaded || (!!runId && !run) ? "Memuat analisis?" : report ? "Analisis ulang dataset ini" : "Mulai analisis"}
                 </button>
             </section>}
             <ErrorAlert messages={errors} />
-            {!resultsView && run && headerTarget && createPortal(
+            {!resultsView && headerTarget && createPortal(
                     <section className="analysis-metadata" aria-label="Metadata hasil analisis">
                         <strong className="analysis-metadata-title">Metadata analisis</strong>
-                        <span><b>Run</b> {runId}</span>
-                        <span><b>Model</b> {run.actual_model ?? run.model_name}</span>
-                        <span><b>Status</b> {statusLabel[run.status] ?? run.status}</span>
-                        <span><b>Request AI</b> {run.requests_count}</span>
-                        <span><b>Token</b> {run.input_tokens + run.output_tokens}</span>
-                        <span><b>Aktivitas dari cache</b> {run.cache_hits}</span>
+                        <span><b>Run</b> {runId ?? "—"}</span>
+                        <span title={run?.actual_model ?? run?.model_name}><b>Model</b> {run?.actual_model ?? run?.model_name ?? "—"}</span>
+                        <span><b>Status</b> {run ? statusLabel[run.status] ?? run.status : "—"}</span>
+                        <span><b>Request AI</b> {run?.requests_count ?? "—"}</span>
+                        <span><b>Token</b> {run ? run.input_tokens + run.output_tokens : "—"}</span>
+                        <span><b>Aktivitas dari cache</b> {run?.cache_hits ?? "—"}</span>
                     </section>
             , headerTarget)}
             {resultsView && headerTarget && createPortal(<>
-                {history.length > 0 && (
                 <label className="results-history">
                     <span className="visually-hidden">Riwayat analisis</span>
                     <Select
                         aria-label="Riwayat analisis"
+                        disabled={history.length === 0}
                         value={runId ?? ""}
                         onChange={(e) => {
                             setRun(null);
@@ -239,6 +251,7 @@ export default function AnalysisPage({
                             setParams({ dataset: String(importId), run: e.target.value });
                         }}
                     >
+                        {history.length === 0 && <option value="">Pilih analisis</option>}
                         {run && !history.some((r) => r.id === runId) && <option value={run.id}>Analisis {run.id} (tautan langsung)</option>}
                         {history.map((r) => (
                             <option key={r.id} value={r.id}>
@@ -247,22 +260,27 @@ export default function AnalysisPage({
                             </option>
                         ))}
                     </Select>
-                </label>)}
-                {report && run?.status === "completed" && <div className="analysis-exports" aria-label="Unduh hasil analisis">
-                    {[ ["xlsx", "Unduh Excel"], ["pdf", "Unduh PDF"], ["json", "Unduh JSON"] ].map(([format, label]) => <button key={format} disabled={!!download} onClick={() => void exportFile(format)}>{download === format ? "Menyiapkan..." : label}</button>)}
-                </div>}
+                </label>
+                <div className="analysis-exports" aria-label="Unduh hasil analisis">
+                    {[ ["xlsx", "Unduh Excel"], ["pdf", "Unduh PDF"], ["json", "Unduh JSON"] ].map(([format, label]) => <button key={format} disabled={!report || run?.status !== "completed" || !!download} onClick={() => void exportFile(format)}>{download === format ? "Menyiapkan..." : label}</button>)}
+                </div>
             </>, headerTarget)}
             {!run && (
-                <p role="status">
-                    {runId
-                        ? "Memuat hasil analisis…"
-                        : resultsView ? "Belum ada hasil lengkap. Jalankan analisis di halaman Analisis AI." : "Belum ada analisis. Mulai untuk menilai seluruh aktivitas dalam dataset ini."}
-                </p>
+                runId ? <div className="analysis-loading" role="status" aria-live="polite">
+                    <span className="analysis-spinner" aria-hidden="true" />
+                    <p>Memuat hasil analisis…</p>
+                </div> : <section className="analysis-empty" role="status">
+                    <span className="analysis-empty-icon" aria-hidden="true"><Icon name="chart" /></span>
+                    <h2>{resultsView ? "Belum ada hasil analisis" : "Belum ada analisis"}</h2>
+                    <p>{resultsView ? "Jalankan analisis di halaman Analisis AI untuk melihat hasil dan rekomendasi otomatisasi." : "Mulai analisis untuk menilai potensi otomatisasi seluruh aktivitas dalam dataset ini."}</p>
+                </section>
             )}
             {resultsView && run && run.status !== "completed" && <p className="alert">Run ini belum selesai. <Link to={`/analysis?dataset=${importId}&run=${runId}`}>Pantau proses di Analisis AI</Link></p>}
             {!resultsView && run && run.status !== "completed" && (
                 <section className="panel analysis-status" aria-live="polite">
                     <div>
+                        <span className="eyebrow">ANALISIS {run.id} ? DATASET {importId}</span>
+                        <h2>{dataset?.filename ?? `Dataset ${importId}`}</h2>
                         <strong>{statusLabel[run.status] ?? run.status}</strong>
                         <p>{run.progress.success ?? 0} dari {run.total} aktivitas berhasil dianalisis ({Math.floor((run.progress.success ?? 0) / Math.max(1, run.total) * 100)}%). {run.progress.failed ?? 0} gagal.</p>
                         <progress aria-label="Kemajuan analisis aktivitas" max={Math.max(1, run.total)} value={run.progress.success ?? 0} />
@@ -311,18 +329,16 @@ export default function AnalysisPage({
                 </section>
             )}
             {!resultsView && report && run?.status === "completed" && (
-                <section className="panel"><h2>Analisis selesai</h2><p>Seluruh hasil siap ditinjau. Buka halaman hasil untuk rekomendasi, kelompok aktivitas, dan export.</p><Link className="button primary" to={`/results?dataset=${importId}&run=${runId}`}>Lihat hasil analisis</Link></section>
+                <section className="panel analysis-completed">
+                    <div className="analysis-completed-heading"><span className="analysis-completed-icon" aria-hidden="true">?</span><div><span className="eyebrow">HASIL TERSEDIA</span><h2>Analisis selesai</h2></div><span className="analysis-completed-badge">Selesai</span></div>
+                    <h3>{dataset?.filename ?? `Dataset ${importId}`}</h3>
+                    <div className="analysis-dataset-facts"><span>Dataset {importId}</span><span>Analisis {run.id}</span><span>{run.total} aktivitas dianalisis</span></div>
+                    <div className="analysis-completed-footer"><p>Hasil tersimpan. Buka tanpa menjalankan AI lagi.</p><Link className="button primary" to={`/results?dataset=${importId}&run=${runId}`}>Lihat hasil analisis ?</Link></div>
+                </section>
             )}
             {resultsView && report && run?.status === "completed" && (
                 <>
                     <section className="panel analysis-results">
-                        <details className="analysis-reading-guide">
-                            <summary>Cara membaca hasil</summary>
-                            <p>Mulai dari prioritas tertinggi. Saving adalah estimasi kapasitas waktu dalam FTE; skor prioritas mempertimbangkan saving, risiko, dan kesulitan implementasi.</p>
-                            <span>High: mayoritas langkah · Medium: sebagian langkah · Low: bantuan terbatas. Keputusan dan pengawasan tetap pada manusia.</span>
-                            <p>Persetujuan rutin berarti manusia menyetujui setiap transaksi. Review pengecualian berlaku untuk kasus di luar kriteria. Keputusan final berisiko tetap pada manusia berwenang. Label AI tidak merinci seluruh jenis kontrol; konfirmasi peran dan pemicu bersama pemilik proses.</p>
-                            <p>Skor prioritas bukan probabilitas keberhasilan. Estimated saving belum menjadi efisiensi yang terealisasi.</p>
-                        </details>
                         {!!run?.consistency_review?.length && (
                             <details className="analysis-reading-guide">
                                 <summary>Review konsistensi: {run.consistency_review.length} kelompok dengan level berbeda</summary>
@@ -402,8 +418,9 @@ export default function AnalysisPage({
                                     </label>
                                 </div>
                                 <p className="analysis-result-count" role="status">{activities.length} aktivitas ditampilkan · {tab === "priorities" ? "Diurutkan berdasarkan skor prioritas tertinggi" : "Seluruh aktivitas dalam hasil analisis"}</p>
-                                <div className="table-scroll">
-                                    <table>
+                                <p className="table-hint">Geser tabel untuk melihat kolom lainnya.</p>
+                                <div className="table-scroll" role="region" aria-label="Tabel hasil analisis" tabIndex={0}>
+                                    <table aria-label="Hasil analisis aktivitas">
                                         <thead>
                                             <tr>
                                                 <th>Aktivitas / departemen</th>

@@ -152,7 +152,7 @@ export default function ImportsPage({
                     </span>
                 </div>
                 {imports.length ? (
-                    <div className="table-scroll">
+                    <div className="table-scroll" role="region" aria-label="Riwayat dataset" tabIndex={0}>
                         <table
                             className="imports-table"
                             aria-label="Riwayat dataset"

@@ -39,4 +39,5 @@ export const workspaceNavigation: NavigationItem[] = [
         title: "Data aktivitas",
         icon: "activities",
     },
+    { path: "/help", label: "Pusat Bantuan", title: "Pusat Bantuan", icon: "info" },
 ];

@@ -6,6 +6,8 @@
     margin-bottom: 24px;
 }
 .metric {
+    min-width: 0;
+    container-type: inline-size;
     min-height: 160px;
     display: flex;
     flex-direction: column;
@@ -36,7 +38,7 @@
 }
 .metric-value > strong {
     color: var(--navy);
-    font-size: 36px;
+    font-size: clamp(20px, calc(100cqi / var(--metric-length, 6) * 1.65), 36px);
     font-weight: 650;
     line-height: 1.15;
     letter-spacing: -1.1px;
@@ -318,7 +320,9 @@
 }
 .table-scroll {
     width: 100%;
+    max-width: 100%;
     overflow-x: auto;
+    overscroll-behavior-x: contain;
 }
 .table-hint {
     display: none;
@@ -441,6 +445,7 @@ td small {
 }
 .pagination {
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
     align-items: center;
     gap: 14px;

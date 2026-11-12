@@ -79,6 +79,7 @@ html:has(.login-layout) {
     min-height: 0;
     display: grid;
     place-items: center;
+    align-items: safe center;
     padding: 28px clamp(24px, 4vw, 72px);
     overflow: auto;
     overscroll-behavior: contain;

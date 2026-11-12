@@ -79,6 +79,7 @@ export default function ActivitiesPage({
                 <label>
                     Departemen
                     <Select
+                        aria-label="Departemen"
                         value={department}
                         onChange={(e) => {
                             setDepartment(e.target.value);
@@ -94,6 +95,7 @@ export default function ActivitiesPage({
                 <label>
                     Frekuensi
                     <Select
+                        aria-label="Frekuensi"
                         value={frequency}
                         onChange={(e) => {
                             setFrequency(e.target.value);

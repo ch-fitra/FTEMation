@@ -26,7 +26,7 @@ export default function WorkspaceSidebar({
                 </span>
             </Link>
             <span className="nav-label">WORKSPACE</span>
-            <nav>
+            <nav aria-label="Navigasi workspace">
                 {workspaceNavigation.map((item) => (
                     <NavLink
                         key={item.path}

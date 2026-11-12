@@ -16,12 +16,14 @@ import { api, errorMessages } from "../lib/http";
 import ActivitiesPage from "../pages/ActivitiesPage";
 import ImportsPage from "../pages/ImportsPage";
 import OverviewPage from "../pages/OverviewPage";
+import HelpPage from "../pages/HelpPage";
 import AnalysisPage from "../pages/AnalysisPage";
 import type { User } from "../types/auth";
 import type { ImportItem } from "../types/workload";
 import WorkspaceHeader from "./WorkspaceHeader";
 import Select from "../components/Select";
 import WorkspaceSidebar from "./WorkspaceSidebar";
+import MobileNavigation from "./MobileNavigation";
 
 export default function WorkspaceLayout({
     user,
@@ -78,39 +80,40 @@ export default function WorkspaceLayout({
 
     return (
         <div className="workspace">
+            <a className="skip-link" href="#workspace-content">Lewati navigasi</a>
             <WorkspaceSidebar importId={workload.selectedId} onLogout={() => setLogoutPhase("confirm")} />
+            <MobileNavigation importId={workload.selectedId} onLogout={() => setLogoutPhase("confirm")} />
             <div className="main-shell">
                 <WorkspaceHeader
                     title={currentPage.title}
                     isOverview={currentPath === "/"}
-                    analysisAction={currentPath === "/" && !workload.loading && workload.summary ? {
-                        to: `${workload.summary.analysis_run_id ? "/results" : "/analysis"}?dataset=${workload.selectedId}${workload.summary.analysis_run_id ? `&run=${workload.summary.analysis_run_id}` : ""}`,
-                        label: workload.summary.analysis_run_id ? "Lihat hasil analisis" : ["queued", "processing"].includes(workload.summary.analysis_status) ? "Lihat progres analisis" : "Mulai analisis AI",
-                    } : undefined}
                     datasetControl={["/", "/results", "/activities"].includes(currentPath) ? (
                         <label className="header-dataset">
                             <span>Dataset aktif</span>
-                            <Select singleLineOptions value={workload.selectedId ?? ""} aria-label="Dataset aktif" onChange={(e) => {
+                            <Select singleLineOptions disabled={workload.loading && !workload.imports.length} value={workload.selectedId ?? ""} aria-label="Dataset aktif" onChange={(e) => {
                                 workload.selectImport(Number(e.target.value));
                                 navigate(`${currentPath}?dataset=${e.target.value}`);
                             }}>
-                                <option value="" disabled>Pilih dataset</option>
+                                <option value={workload.loading && !workload.selectedImport && !workload.imports.some(i => i.id === workload.selectedId) ? workload.selectedId ?? "" : ""} disabled>{workload.loading ? "Memuat dataset…" : "Pilih dataset"}</option>
                                 {workload.selectedImport && !workload.imports.some((i) => i.id === workload.selectedId) && <option value={workload.selectedId!}>{workload.selectedImport.filename}</option>}
                                 {workload.imports.filter((i) => i.status === "imported").map((i) => <option key={i.id} value={i.id}>{i.filename}</option>)}
                             </Select>
                         </label>
                     ) : undefined}
                     user={user}
+                    resultsView={currentPath === "/results"}
+                    showActivitiesCount={currentPath === "/activities"}
                     resultsActionsRef={["/results", "/analysis"].includes(currentPath) ? setResultsHeader : undefined}
-                    activitiesCount={currentPath === "/activities" && !workload.loading ? workload.summary?.activities_count : undefined}
+                    activitiesCount={currentPath === "/activities" && !workload.loading ? workload.summary?.activities_count ?? 0 : undefined}
                 />
-                <main className="content">
+                <main className="content" id="workspace-content" tabIndex={-1}>
                     <ErrorAlert messages={workload.errors} />
                     {workload.loading ? (
                         <WorkspacePlaceholder page={currentPath} />
                     ) : workload.errors.length > 0 &&
                       !workload.summary ? null : (
                         <Routes>
+                            <Route path="/help" element={<HelpPage summary={workload.summary} />} />
                             <Route
                                 path="/results"
                                 element={<AnalysisPage key={`results-${workload.selectedId}`} view="results" headerTarget={resultsHeader} importId={workload.selectedId} model={workload.summary?.analysis_model} onComplete={workload.refreshImports} />}
@@ -122,6 +125,8 @@ export default function WorkspaceLayout({
                                         key={workload.selectedId}
                                         headerTarget={resultsHeader}
                                         importId={workload.selectedId}
+                                        dataset={workload.selectedImport}
+                                        summary={workload.summary}
                                         model={workload.summary?.analysis_model}
                                         onComplete={workload.refreshImports}
                                     />

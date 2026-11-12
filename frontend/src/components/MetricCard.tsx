@@ -1,5 +1,6 @@
 import Icon from "./Icon";
 import type { IconName } from "./Icon";
+import type { CSSProperties } from "react";
 
 export default function MetricCard({
     label,
@@ -17,7 +18,7 @@ export default function MetricCard({
     unit?: string;
 }) {
     return (
-        <section className={`metric ${accent ? "metric-accent" : ""}`}>
+        <section className={`metric ${accent ? "metric-accent" : ""}`} style={{ "--metric-length": Math.max(1, value.length) } as CSSProperties}>
             <div className="metric-heading">
                 <span>{label}</span>
                 {icon && <Icon name={icon} />}

@@ -10,7 +10,7 @@ export default function Select({ children, value, onChange, disabled, singleLine
     const popup = useRef<HTMLDivElement>(null);
     const [open, setOpen] = useState(false);
     const [active, setActive] = useState(0);
-    const [position, setPosition] = useState({ top: 0, left: 0, width: 0, maxHeight: 280 });
+    const [position, setPosition] = useState<{top?: number; bottom?: number; left: number; width: number; maxHeight: number}>({ top: 0, left: 0, width: 0, maxHeight: 280 });
     const options: Option[] = Children.toArray(children).filter(isValidElement).map(child => {
         const p = child.props as { value?: string | number; children: ReactNode; disabled?: boolean };
         return { value: String(p.value ?? p.children), label: p.children, disabled: p.disabled };
@@ -33,12 +33,15 @@ export default function Select({ children, value, onChange, disabled, singleLine
     }, [open]);
     function show() {
         const rect = trigger.current!.getBoundingClientRect();
-        const below = window.innerHeight - rect.bottom - 16;
-        const height = Math.min(280, Math.max(100, below < 160 ? rect.top - 16 : below));
-        const width = singleLineOptions ? Math.min(Math.max(rect.width, 600), window.innerWidth - 16) : rect.width;
-        const left = singleLineOptions ? Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)) : rect.left;
-        setPosition({ top: below < 160 ? Math.max(8, rect.top - height - 6) : rect.bottom + 6, left, width, maxHeight: height });
-        setActive(Math.max(0, selected));
+        const viewportWidth = document.documentElement.clientWidth;
+        const below = window.innerHeight - rect.bottom - 14;
+        const above = rect.top - 14;
+        const upwards = below < 160 && above > below;
+        const height = Math.min(280, Math.max(0, upwards ? above : below));
+        const width = Math.min(singleLineOptions ? Math.max(rect.width, 600) : rect.width, viewportWidth - 16);
+        const left = Math.max(8, Math.min(rect.left, viewportWidth - width - 8));
+        setPosition({ ...(upwards ? { bottom: window.innerHeight - rect.top + 6 } : { top: rect.bottom + 6 }), left, width, maxHeight: height });
+        setActive(selected >= 0 && !options[selected].disabled ? selected : Math.max(0, options.findIndex(o => !o.disabled)));
         setOpen(true);
     }
     function choose(index: number) {
@@ -49,7 +52,7 @@ export default function Select({ children, value, onChange, disabled, singleLine
         trigger.current?.focus();
     }
     return <div className="custom-select">
-        <button ref={trigger} type="button" role="combobox" aria-expanded={open} aria-controls={`${id}-list`} aria-haspopup="listbox" aria-activedescendant={open ? `${id}-${active}` : undefined} aria-label={props["aria-label"]} disabled={disabled}
+        <button ref={trigger} id={props.id} type="button" role="combobox" aria-expanded={open} aria-controls={`${id}-list`} aria-haspopup="listbox" aria-activedescendant={open ? `${id}-${active}` : undefined} aria-label={props["aria-label"]} aria-labelledby={props["aria-labelledby"]} disabled={disabled}
             onClick={() => open ? setOpen(false) : show()}
             onBlur={(e) => { if (!popup.current?.contains(e.relatedTarget)) setOpen(false); }}
             onKeyDown={(e) => {
@@ -57,12 +60,14 @@ export default function Select({ children, value, onChange, disabled, singleLine
                     e.preventDefault();
                     if (!open) { show(); return; }
                     if (e.key === "Enter" || e.key === " ") { choose(active); return; }
-                    const next = e.key === "Home" ? 0 : e.key === "End" ? options.length - 1 : (active + (e.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+                    const enabled = options.map((option, index) => option.disabled ? -1 : index).filter(index => index >= 0);
+                    if (!enabled.length) return;
+                    const next = e.key === "Home" ? enabled[0] : e.key === "End" ? enabled.at(-1)! : enabled[(enabled.indexOf(active) + (e.key === "ArrowDown" ? 1 : -1) + enabled.length) % enabled.length];
                     setActive(next);
                     document.getElementById(`${id}-${next}`)?.scrollIntoView({ block: "nearest" });
                 } else if (e.key === "Escape" || e.key === "Tab") setOpen(false);
                 else if (e.key.length === 1) {
-                    const next = options.findIndex(o => String(o.label).toLowerCase().startsWith(e.key.toLowerCase()));
+                    const next = options.findIndex(o => !o.disabled && String(o.label).toLowerCase().startsWith(e.key.toLowerCase()));
                     if (next >= 0) { if (!open) show(); setActive(next); }
                 }
             }}>

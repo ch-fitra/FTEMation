@@ -142,7 +142,7 @@
     line-height: 1.25;
     letter-spacing: -0.65px;
 }
-.topbar-with-dataset {display:grid;grid-template-columns:auto minmax(160px,1fr) auto;}
+.topbar-with-dataset {display:grid;grid-template-columns:auto minmax(0,1fr) auto;}
 .header-dataset {width:100%;max-width:340px;min-width:0;justify-self:center;display:flex;align-items:center;gap:8px;margin:0;font-size:11px;}
 .header-dataset > span {flex-shrink:0;color:var(--muted);font-weight:500;}
 .header-dataset .custom-select {min-width:0;}

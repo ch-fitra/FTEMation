@@ -39,7 +39,7 @@ try {
  await page.getByRole('heading',{name:'Peluang otomatisasi terbaik',exact:true}).waitFor();
  assert.equal(await page.locator('.topbar').getByRole('combobox',{name:'Dataset aktif',exact:true}).isVisible(),true);
  assert.equal(await page.locator('.dataset-context').count(),0);
- assert.deepEqual(await page.locator('.sidebar nav a').allTextContents(),[' Overview',' Import dataset',' Analisis AI',' Hasil analisis',' Data aktivitas']);
+ assert.deepEqual(await page.locator('.sidebar nav a').allTextContents(),[' Overview',' Import dataset',' Analisis AI',' Hasil analisis',' Data aktivitas',' Pusat Bantuan']);
  await page.getByRole('link',{name:/Lihat Detail Analisis/}).first().click();
  await page.locator('dialog[open]').waitFor();
  assert.match(page.url(),/\/results\?/);
@@ -57,6 +57,12 @@ try {
  assert.equal(await page.getByRole('button',{name:'Mulai analisis',exact:true}).count(),0);
  await page.locator('.sidebar nav').getByRole('link',{name:'Analisis AI',exact:true}).click();
  await page.getByRole('heading',{name:'Analisis selesai',exact:true}).waitFor();
+ assert.match(await page.locator('.analysis-dataset-identity').innerText(), /Dataset 60.xlsx/);
+ assert.match(await page.locator('.analysis-dataset-identity').innerText(), /Dataset 1/);
+ assert.match(await page.locator('.analysis-completed').innerText(), /Dataset 60.xlsx/);
+ assert.match(await page.locator('.analysis-completed').innerText(), /Analisis 10/);
+ assert.equal(await page.getByRole('button',{name:'Analisis ulang dataset ini',exact:true}).isEnabled(),true);
+ assert.match(await page.locator('.analysis-completed a').getAttribute('href'), /dataset=1&run=10/);
  assert.equal(await page.locator('.topbar .analysis-metadata').isVisible(),true);
  assert.equal(await page.locator('.topbar').evaluate(el=>el.getBoundingClientRect().height),64);
  assert.equal(await page.locator('main .analysis-metadata').count(),0);
@@ -103,7 +109,7 @@ try {
  await page.getByRole('button',{name:'Coba kembali yang gagal'}).waitFor();
  mode='baseline';
  await page.goto('http://localhost:8000/results?dataset=1');
- await page.getByText('Belum ada hasil lengkap.', {exact:false}).waitFor().catch(async e => { console.log('Page errors:',errors,'Body:',await page.locator('body').innerText()); throw e; });
+ await page.getByRole('heading', {name:'Belum ada hasil analisis', exact:true}).waitFor().catch(async e => { console.log('Page errors:',errors,'Body:',await page.locator('body').innerText()); throw e; });
  mode='completed';
  await page.goto('http://localhost:8000/results?dataset=2&run=20');
  await page.locator('.analysis-results').waitFor();
@@ -114,7 +120,7 @@ try {
  await page.locator('.analysis-results').waitFor();
  await page.setViewportSize({width:390,height:844});
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
- await page.locator('.sidebar nav').getByRole('link',{name:'Import dataset',exact:true}).click();
+ await page.getByRole('navigation',{name:'Navigasi mobile'}).getByRole('link',{name:'Import dataset',exact:true}).click();
  await page.locator('input[type=file]').waitFor();
  assert.equal(await page.getByRole('combobox',{name:'Dataset aktif',exact:true}).count(),0);
  assert.equal(await page.locator('.dataset-context').count(),0);

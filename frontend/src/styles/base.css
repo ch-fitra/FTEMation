@@ -29,6 +29,10 @@
 body {
     margin: 0;
 }
+html:has(dialog[open]) {overflow:hidden;}
+img {max-width:100%;}
+.skip-link {position:fixed;top:8px;left:8px;z-index:1100;transform:translateY(-160%);padding:12px 18px;border-radius:8px;background:white;color:var(--navy);font-weight:600;}
+.skip-link:focus {transform:translateY(0);}
 /* Match native controls/scrollbars to the application's light surface. */
 ::-webkit-scrollbar {
     width: 10px;
