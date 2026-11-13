@@ -43,7 +43,6 @@ Pilihan dataset berlaku di seluruh halaman. Ringkasan hasil menggunakan analisis
 | Android | Flutter, Dart |
 | Database | MySQL |
 | Model AI | DeepSeek-Flash |
-| Impor dan laporan | PhpSpreadsheet untuk Excel, DomPDF untuk PDF |
 
 ```text
 React (web) --------+
