@@ -17,8 +17,8 @@ Data aktivitas diimpor dari Excel, lalu dihitung dalam satuan **FTE (Full-Time E
 
 | | Kredensial |
 | --- | --- |
-| Username bawaan seeder | `akun demo` |
-| Password | **[Diisi pengelola dengan password akun demo khusus penguji]** |
+| Username bawaan seeder | `user demo` |
+| Password | `admin123` |
 
 Password demo tidak disertakan dalam source code. Untuk instalasi lokal, isi `DEMO_PASSWORD` minimal delapan karakter sebelum menjalankan seeder, lalu masuk dengan username dan password yang Anda tetapkan. Username di atas merupakan nilai bawaan `.env.example`, belum merupakan konfirmasi akun pada website production. Pengelola perlu melengkapi kredensial demo sebelum menyerahkan akses kepada penguji.
 
