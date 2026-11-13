@@ -38,11 +38,11 @@ Pilihan dataset berlaku di seluruh halaman. Ringkasan hasil menggunakan analisis
 
 | Bagian | Teknologi dan peran |
 | --- | --- |
-| Backend | Laravel 13, PHP 8.4, REST API, autentikasi Sanctum |
-| Web | React, TypeScript, Vite, Axios |
-| Android | Flutter, Dart, Provider, Dio |
-| Database | MySQL atau MariaDB; antrean dan cache menggunakan database |
-| AI | DeepSeek melalui API backend |
+| Backend | Laravel 13, PHP 8.4, REST API |
+| Web | React, TypeScript, Vite |
+| Android | Flutter, Dart |
+| Database | MySQL |
+| Model AI | DeepSeek-Flash |
 | Impor dan laporan | PhpSpreadsheet untuk Excel, DomPDF untuk PDF |
 
 ```text
